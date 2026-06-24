@@ -1,19 +1,9 @@
-// js/parent-api.js - Complete Version (CORS-FIXED for GitHub Pages)
+// js/parent-api.js - Complete Version (GitHub Pages Compatible)
 // ============================================
 // School Report System - Parent Portal API Client
 //
-// FIXED: This version handles Google Apps Script CORS issues by:
-// 1. Using a free CORS proxy to add CORS headers
-// 2. Falling back to direct fetch if no proxy needed
-// 3. Retry logic for transient failures
-//
-// ⚠️ IMPORTANT FOR DEPLOYMENT:
-// In Google Apps Script editor, deploy as:
-//   - Execute as: Me
-//   - Who has access: Anyone (or Anyone with link)
-//
-// If you set "Anyone" and CORS still fails from GitHub Pages,
-// this file will automatically use the CORS proxy.
+// This version ALWAYS uses a CORS proxy when running from GitHub Pages
+// because Google Apps Script does NOT set CORS headers on its responses.
 
 class ParentAPI {
     constructor() {
@@ -22,30 +12,33 @@ class ParentAPI {
         this.apiKey = CONFIG.API_KEY;
         this.currentStudent = null;
         this.currentReport = null;
-        this.retryCount = 0;
-        this.maxRetries = 1;
         
-        // CORS proxy for Google Apps Script (GitHub Pages fix)
-        // https://corsproxy.io/ is a free service that adds CORS headers
+        // Determine if we're on GitHub Pages (need CORS proxy)
+        this.isGitHubPages = window.location.hostname.includes('github.io') || 
+                             window.location.hostname.includes('netlify.app');
+        
+        // CORS proxy - always use when on GitHub Pages
         this.corsProxyUrl = 'https://corsproxy.io/?';
-        this.useCorsProxy = false; // Will enable if direct fetch fails
+        
+        console.log(`🌐 Running from: ${window.location.hostname}`);
+        console.log(`🔌 CORS proxy ${this.isGitHubPages ? 'ENABLED' : 'DISABLED'}`);
     }
 
     // ============================================
-    // BASE API CALL
+    // BASE API CALL - Always via GET (most reliable for CORS)
     // ============================================
 
     async call(action, params = {}, method = 'GET') {
         try {
             console.log(`📤 API Call: ${action}`, params);
             
-            // Build URL with ALL params as query string (Google Apps Script parses these)
+            // Build URL with ALL parameters
             const url = new URL(this.apiUrl);
             url.searchParams.append('action', action);
             url.searchParams.append('schoolId', this.schoolId);
             url.searchParams.append('apiKey', this.apiKey);
             
-            // Add action-specific params as query params too
+            // Add action-specific params
             Object.entries(params).forEach(([key, value]) => {
                 if (value !== undefined && value !== null) {
                     if (typeof value === 'object') {
@@ -56,25 +49,20 @@ class ParentAPI {
                 }
             });
             
-            // Determine the actual URL to fetch
+            // Wrap with CORS proxy if needed
             let fetchUrl = url.toString();
-            
-            // If using CORS proxy, wrap the URL
-            if (this.useCorsProxy) {
+            if (this.isGitHubPages || this.corsProxyEnabled) {
                 fetchUrl = this.corsProxyUrl + encodeURIComponent(fetchUrl);
             }
             
-            console.log(`📤 Fetching: ${method} ${fetchUrl.substring(0, 150)}...`);
+            console.log('📤 Fetching URL (truncated):', fetchUrl.substring(0, 200) + '...');
             
             const options = {
                 method: method,
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             };
             
-            // For POST, also send JSON body (Apps Script will parse from e.postData)
-            if (method === 'POST' && !this.useCorsProxy) {
+            if (method === 'POST') {
                 options.headers['Content-Type'] = 'text/plain;charset=utf-8';
                 options.body = JSON.stringify(params);
             }
@@ -82,73 +70,59 @@ class ParentAPI {
             const response = await fetch(fetchUrl, options);
             const text = await response.text();
             
-            console.log(`📥 Raw response (${action}):`, text.substring(0, 150));
+            console.log(`📥 Raw response (${action}):`, text.substring(0, 300));
             
-            // Try to parse JSON response
-            // Google Apps Script may return an HTML page on first call (auth redirect)
-            // or a JSON response on subsequent calls
+            // Check if response is HTML (error page from Google)
+            if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                // Extract error title if possible
+                const errorMatch = text.match(/<title>([^<]+)<\/title>/);
+                const errorTitle = errorMatch ? errorMatch[1] : 'Unknown Error';
+                
+                if (errorTitle === 'Error') {
+                    // The Google Apps Script itself is throwing an error
+                    // This likely means files are missing from the deployment
+                    throw new Error(`Apps Script returned an error. 
+➡️ This means the script deployment is incomplete or has errors.
+➡️ You must upload ALL .gs files to the Apps Script editor.
+➡️ Visit ${this.apiUrl}?action=test to see the actual error.`);
+                } else {
+                    throw new Error(`Unexpected response: ${errorTitle}`);
+                }
+            }
+            
+            // Parse JSON
             let result;
             try {
                 result = JSON.parse(text);
-            } catch (parseError) {
-                // If HTML response (auth page), retry without proxy but with redirect follow
-                console.log('⏳ Non-JSON response received (likely auth redirect)');
-                
-                if (!this.useCorsProxy) {
-                    // Try again with redirect: 'follow' (handles the Google auth redirect)
-                    console.log('🔄 Retrying with redirect follow...');
-                    const retryResponse = await fetch(url.toString(), {
-                        method: method,
-                        headers: {
-                            'Accept': 'application/json'
-                        },
-                        ...(method === 'POST' ? {
-                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                            body: JSON.stringify(params)
-                        } : {}),
-                        redirect: 'follow'
-                    });
-                    const retryText = await retryResponse.text();
-                    console.log('📥 Retry response:', retryText.substring(0, 150));
-                    result = JSON.parse(retryText);
-                } else {
-                    throw new Error('Received HTML instead of JSON. Check your Apps Script deployment settings.');
-                }
+            } catch (e) {
+                throw new Error('Invalid JSON response from server');
             }
             
             console.log(`📥 Parsed response (${action}):`, result);
             
             if (result.status === 'error') {
-                throw new Error(result.data.error || 'API error');
+                throw new Error(result.data?.error || 'Unknown API error');
             }
             
             return result.data;
             
         } catch (error) {
-            console.error(`❌ API Error (${action}):`, error);
-            
-            // If CORS error and haven't tried proxy yet, enable proxy and retry
-            if (!this.useCorsProxy && 
-                (error.message.includes('Failed to fetch') || 
-                 error.message.includes('NetworkError') ||
-                 error.message.includes('NetworkError when attempting to fetch resource') ||
-                 error.toString().includes('TypeError'))) {
-                
-                console.log('🔄 CORS detected! Enabling CORS proxy and retrying...');
-                this.useCorsProxy = true;
-                await new Promise(resolve => setTimeout(resolve, 500));
-                return this.call(action, params, method);
-            }
-            
-            // If proxy also failed, throw clearly
-            if (this.useCorsProxy) {
-                throw new Error(`CORS error persists. Please verify:
-1. Your Apps Script is deployed with access set to "Anyone"
-2. Your Spreadsheet ID in main.gs is correct
-3. The API_URL in config.js matches your deployment URL
-4. Try visiting the API URL directly in a browser to test`);
-            }
-            
+            console.error(`❌ API Error (${action}):`, error.message);
+            throw error;
+        }
+    }
+
+    // ============================================
+    // TEST METHOD - Use this first to verify API works
+    // ============================================
+
+    async test() {
+        try {
+            const result = await this.call('test');
+            console.log('✅ API test SUCCESS:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ API test FAILED:', error.message);
             throw error;
         }
     }
@@ -177,35 +151,25 @@ class ParentAPI {
             this.currentReport = report;
             return report;
         }
-        
         const report = await this.call('getReportCard', { studentId, term });
         this.currentReport = report;
         return report;
     }
 
     async getAttendance(studentId, term) {
-        return await this.call('getAttendance', { 
-            studentId: studentId, 
-            term: term 
-        });
+        return await this.call('getAttendance', { studentId, term });
     }
 
     async getBehavioral(studentId, term) {
-        return await this.call('getBehavioral', { 
-            studentId: studentId, 
-            term: term 
-        });
+        return await this.call('getBehavioral', { studentId, term });
     }
 
     async getComments(studentId, term) {
-        return await this.call('getComments', { 
-            studentId: studentId, 
-            term: term 
-        });
+        return await this.call('getComments', { studentId, term });
     }
 
     // ============================================
-    // ADMIN METHODS - STUDENTS
+    // ADMIN METHODS
     // ============================================
 
     async getStudents(className = null) {
@@ -225,12 +189,8 @@ class ParentAPI {
     }
 
     async deleteStudent(studentId) {
-        return await this.call('deleteStudent', { studentId: studentId });
+        return await this.call('deleteStudent', { studentId });
     }
-
-    // ============================================
-    // ADMIN METHODS - TEACHERS
-    // ============================================
 
     async getTeachers() {
         return await this.call('getTeachers');
@@ -248,10 +208,6 @@ class ParentAPI {
         return await this.call('deleteTeacher', { teacherId: data.teacherId });
     }
 
-    // ============================================
-    // ADMIN METHODS - SUBJECTS
-    // ============================================
-
     async getSubjects(className = null) {
         return await this.call('getSubjects', { class: className });
     }
@@ -267,10 +223,6 @@ class ParentAPI {
     async deleteSubject(data) {
         return await this.call('deleteSubject', { subjectId: data.subjectId });
     }
-
-    // ============================================
-    // ADMIN METHODS - CLASSES
-    // ============================================
 
     async getClasses() {
         return await this.call('getClasses');
@@ -288,10 +240,6 @@ class ParentAPI {
         return await this.call('deleteClass', { classId: data.classId });
     }
 
-    // ============================================
-    // ADMIN METHODS - SCORES
-    // ============================================
-
     async getStudentScores(studentId = null, term = null) {
         const params = {};
         if (studentId) params.studentId = studentId;
@@ -300,20 +248,11 @@ class ParentAPI {
     }
 
     async saveScores(data) {
-        // For saving scores, send via GET params to avoid CORS preflight on POST
-        // The main.gs handler reads from e.parameter
         return await this.call('saveScores', data);
     }
 
-    // ============================================
-    // ADMIN METHODS - PINS
-    // ============================================
-
     async generatePins(className, term) {
-        return await this.call('generatePins', { 
-            class: className, 
-            term: term 
-        });
+        return await this.call('generatePins', { class: className, term });
     }
 
     async getPinStatus(className) {
@@ -321,16 +260,12 @@ class ParentAPI {
     }
 
     async revokePin(studentId) {
-        return await this.call('revokePin', { studentId: studentId });
+        return await this.call('revokePin', { studentId });
     }
 
     async getPromotionStatus(studentId) {
         return await this.call('getPromotionStatus', { studentId });
     }
-
-    // ============================================
-    // ADMIN METHODS - SETTINGS
-    // ============================================
 
     async getSettings() {
         return await this.call('getSettings');
@@ -340,39 +275,20 @@ class ParentAPI {
         return await this.call('updateSettings', data);
     }
 
-    // ============================================
-    // ADMIN METHODS - TRANSCRIPTS & BROADSHEETS
-    // ============================================
-
     async generateTranscript(studentId, type = 'standard', options = {}) {
-        return await this.call('generateTranscript', { 
-            studentId: studentId, 
-            type: type,
-            ...options 
-        });
+        return await this.call('generateTranscript', { studentId, type, ...options });
     }
 
     async generateBroadsheet(className, term, type = 'full') {
-        return await this.call('generateBroadsheet', { 
-            class: className, 
-            term: term, 
-            type: type 
-        });
+        return await this.call('generateBroadsheet', { class: className, term, type });
     }
 
     async getAcademicCalendar() {
         return await this.call('getAcademicCalendar');
     }
 
-    // ============================================
-    // ADMIN METHODS - ANALYTICS
-    // ============================================
-
     async getClassAnalysis(className, term) {
-        return await this.call('getClassAnalysis', { 
-            class: className, 
-            term: term 
-        });
+        return await this.call('getClassAnalysis', { class: className, term });
     }
 
     async getStudentAnalysis(studentId) {
@@ -394,16 +310,13 @@ class ParentAPI {
     calculateGrade(score) {
         const grading = CONFIG.GRADING;
         for (const [grade, range] of Object.entries(grading)) {
-            if (score >= range.min && score <= range.max) {
-                return grade;
-            }
+            if (score >= range.min && score <= range.max) return grade;
         }
         return 'F';
     }
 
     getGradeColor(grade) {
-        const grading = CONFIG.GRADING;
-        return grading[grade] || { color: '#000000', cssClass: '' };
+        return CONFIG.GRADING[grade] || { color: '#000000', cssClass: '' };
     }
 
     calculateGPA(average) {
@@ -430,13 +343,11 @@ class ParentAPI {
         const d = new Date(date);
         if (isNaN(d.getTime())) return '';
         return d.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+            year: 'numeric', month: 'long', day: 'numeric'
         });
     }
 }
 
 // Create global instance
 const api = new ParentAPI();
-console.log('✅ ParentAPI initialized (CORS proxy auto-detection active)');
+console.log('✅ ParentAPI initialized');

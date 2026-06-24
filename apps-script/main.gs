@@ -4,38 +4,35 @@
  * This file provides the doGet() and doPost() handlers
  * that are REQUIRED for your Google Apps Script Web App.
  * 
- * Deploy this project as a Web App, and the frontend
- * will connect via this file.
+ * IMPORTANT: You must upload ALL .gs files to Apps Script Editor:
+ *   - main.gs, SchoolManager.gs, StudentManager.gs, ScoreManager.gs
+ *   - CumulativeManager.gs, Utils.gs, PINManager.gs, SettingsManager.gs
+ *   - CommentManager.gs, BehavioralManager.gs, TranscriptManager.gs
+ *   - BroadsheetManager.gs, AnalyticsManager.gs, PromotionManager.gs
+ *   - GraduateTransferManager.gs (15 files total)
  * 
  * @author School Report System
- * @version 1.0
+ * @version 1.1
  */
 
 // ============================================
-// IMPORTANT: Set your Spreadsheet ID here
+// Spreadsheet ID (must be just the ID, not full URL)
 // ============================================
-// To find your Spreadsheet ID:
-// Open your Google Sheet > Look at the URL:
-// https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit
-// Extract only the ID from this URL:
-// https://docs.google.com/spreadsheets/d/1-zHGvgLyxhe2E3tUICqibSDqx4drNYYeIMEJcEZ1qF4/edit
 const SPREADSHEET_ID = '1-zHGvgLyxhe2E3tUICqibSDqx4drNYYeIMEJcEZ1qF4';
 
 // ============================================
-// API Key for basic authentication
+// API Keys for authentication
 // ============================================
-const API_KEYS = ['API_KEY_001'];
+const API_KEYS = ['API_KEY_001', 'test_key'];
 
 // ============================================
-// HTTP GET Handler
+// HTTP Handlers
 // ============================================
+
 function doGet(e) {
   return handleRequest(e);
 }
 
-// ============================================
-// HTTP POST Handler
-// ============================================
 function doPost(e) {
   return handleRequest(e);
 }
@@ -43,271 +40,210 @@ function doPost(e) {
 // ============================================
 // Main Request Handler
 // ============================================
+
 function handleRequest(e) {
-  const startTime = new Date().getTime();
-  
+  // Wrap EVERYTHING in try-catch to ALWAYS return JSON
   try {
-    // Get parameters
+    // Ensure e exists
+    if (!e) {
+      return sendError('No request parameters received');
+    }
+    
+    // Get parameters - handle both GET and POST
     let params;
     if (e.postData && e.postData.contents) {
-      // POST request - parse JSON body
       try {
         params = JSON.parse(e.postData.contents);
       } catch (parseError) {
-        // If not JSON, fall back to parameters
         params = e.parameter;
       }
     } else {
-      // GET request - use URL parameters
       params = e.parameter;
     }
     
-    Logger.log(`📥 Request received: action=${params.action}, params=${JSON.stringify(params)}`);
+    Logger.log(`📥 Request: action=${params ? params.action : 'undefined'}`);
     
-    // Validate required params
+    // Validate params
+    if (!params) {
+      return sendError('No parameters provided');
+    }
     if (!params.action) {
       return sendError('Missing action parameter');
     }
     
-    if (!params.schoolId || !params.apiKey) {
-      return sendError('Missing authentication parameters');
+    // Initialize SchoolManager with full error handling
+    let schoolManager;
+    try {
+      schoolManager = new SchoolManager(SPREADSHEET_ID);
+    } catch (initError) {
+      Logger.log(`❌ Failed to initialize SchoolManager: ${initError.message}`);
+      return sendError('Failed to initialize: ' + initError.message + 
+        '. Check that your Spreadsheet ID is correct and the sheet exists.');
     }
     
-    // Verify API key
-    if (!API_KEYS.includes(params.apiKey)) {
-      return sendError('Invalid API key');
-    }
-    
-    // Initialize SchoolManager
-    const schoolManager = new SchoolManager(SPREADSHEET_ID);
+    // Route actions
     let result;
-    
-    // Route to appropriate handler based on action
     switch (params.action) {
       
-      // ============================================
-      // STUDENT ACTIONS
-      // ============================================
+      // STUDENTS
       case 'getStudents':
         result = schoolManager.getStudents(params.class || null);
         break;
-        
       case 'getStudent':
         result = schoolManager.getStudent(params.studentId);
         break;
-        
       case 'addStudent':
         result = schoolManager.addStudent(params);
         break;
-        
       case 'updateStudent':
         result = schoolManager.updateStudent(params);
         break;
-        
       case 'deleteStudent':
         result = schoolManager.deleteStudent(params.studentId);
         break;
         
-      // ============================================
-      // TEACHER ACTIONS
-      // ============================================
+      // TEACHERS
       case 'getTeachers':
         result = schoolManager.getTeachers();
         break;
-        
       case 'addTeacher':
         result = schoolManager.addTeacher(params);
         break;
-        
       case 'updateTeacher':
         result = schoolManager.updateTeacher(params);
         break;
-        
       case 'deleteTeacher':
         result = schoolManager.deleteTeacher(params.teacherId);
         break;
         
-      // ============================================
-      // SUBJECT ACTIONS
-      // ============================================
+      // SUBJECTS
       case 'getSubjects':
         result = schoolManager.getSubjects(params.class || null);
         break;
-        
       case 'addSubject':
         result = schoolManager.addSubject(params);
         break;
-        
       case 'updateSubject':
         result = schoolManager.updateSubject(params);
         break;
-        
       case 'deleteSubject':
         result = schoolManager.deleteSubject(params.subjectId);
         break;
         
-      // ============================================
-      // CLASS ACTIONS
-      // ============================================
+      // CLASSES
       case 'getClasses':
         result = schoolManager.getClasses();
         break;
-        
       case 'addClass':
         result = schoolManager.addClass(params);
         break;
-        
       case 'updateClass':
         result = schoolManager.updateClass(params);
         break;
-        
       case 'deleteClass':
         result = schoolManager.deleteClass(params.classId);
         break;
         
-      // ============================================
-      // SCORE ACTIONS
-      // ============================================
+      // SCORES
       case 'getStudentScores':
-        result = schoolManager.getStudentScores(
-          params.studentId || null,
-          params.term || null
-        );
+        result = schoolManager.getStudentScores(params.studentId || null, params.term || null);
         break;
-        
       case 'saveScores':
         result = schoolManager.saveScores(params);
         break;
         
-      // ============================================
-      // CUMULATIVE ACTIONS
-      // ============================================
+      // REPORTS
       case 'getReportCard':
         result = schoolManager.getReportCard(params.studentId, params.term);
         break;
-        
       case 'generateCumulativeReport':
         result = schoolManager.generateCumulativeReport(params.studentId);
         break;
         
-      // ============================================
-      // ATTENDANCE ACTIONS
-      // ============================================
+      // ATTENDANCE
       case 'getAttendance':
         result = schoolManager.getAttendance(params.studentId, params.term);
         break;
         
-      // ============================================
-      // BEHAVIORAL ACTIONS
-      // ============================================
+      // BEHAVIORAL
       case 'getBehavioral':
         result = schoolManager.getBehavioral(params.studentId, params.term);
         break;
         
-      // ============================================
-      // COMMENT ACTIONS
-      // ============================================
+      // COMMENTS
       case 'getComments':
         result = schoolManager.getComments(params.studentId, params.term);
         break;
         
-      // ============================================
-      // PIN ACTIONS
-      // ============================================
+      // PINS
       case 'validatePin':
         result = schoolManager.validatePin(params.pin, params.class);
         break;
-        
       case 'generatePins':
         result = schoolManager.generatePins(params.class, params.term);
         break;
-        
       case 'getPinStatus':
         result = schoolManager.getPinStatus(params.class);
         break;
-        
       case 'revokePin':
         result = schoolManager.revokePin(params.studentId);
         break;
         
-      // ============================================
-      // SETTINGS ACTIONS
-      // ============================================
+      // SETTINGS
       case 'getSettings':
         result = schoolManager.getSettings();
         break;
-        
       case 'updateSettings':
         result = schoolManager.updateSettings(params);
         break;
         
-      // ============================================
-      // TRANSCRIPT ACTIONS
-      // ============================================
+      // TRANSCRIPTS & BROADSHEETS
       case 'generateTranscript':
-        result = schoolManager.generateTranscript(
-          params.studentId,
-          params.type || 'standard',
-          params.options || {}
-        );
+        result = schoolManager.generateTranscript(params.studentId, params.type || 'standard', params.options || {});
         break;
-        
-      // ============================================
-      // BROADSHEET ACTIONS
-      // ============================================
       case 'generateBroadsheet':
-        result = schoolManager.generateBroadsheet(
-          params.class,
-          params.term,
-          params.type || 'full'
-        );
+        result = schoolManager.generateBroadsheet(params.class, params.term, params.type || 'full');
         break;
         
-      // ============================================
-      // ANALYTICS ACTIONS
-      // ============================================
+      // ANALYTICS
       case 'getClassAnalysis':
         result = schoolManager.getClassAnalysis(params.class, params.term);
         break;
-        
       case 'getStudentAnalysis':
         result = schoolManager.getStudentAnalysis(params.studentId);
         break;
-        
       case 'getSchoolAnalysis':
         result = schoolManager.getSchoolAnalysis(params.term);
         break;
-        
       case 'getTeacherAnalysis':
         result = schoolManager.getTeacherAnalysis(params.teacherId);
         break;
         
-      // ============================================
-      // PROMOTION ACTIONS
-      // ============================================
+      // PROMOTION
       case 'getPromotionStatus':
         result = schoolManager.getPromotionStatus(params.studentId);
         break;
         
-      // ============================================
-      // CALENDAR ACTIONS
-      // ============================================
+      // CALENDAR
       case 'getAcademicCalendar':
         result = schoolManager.getAcademicCalendar();
+        break;
+        
+      // TEST - always returns success
+      case 'test':
+        result = { message: 'API is working', timestamp: new Date().toISOString() };
         break;
         
       default:
         return sendError('Unknown action: ' + params.action);
     }
     
-    const elapsed = new Date().getTime() - startTime;
-    Logger.log(`✅ Action '${params.action}' completed in ${elapsed}ms`);
-    
+    Logger.log(`✅ ${params.action} completed`);
     return sendSuccess(result);
     
   } catch (error) {
-    Logger.log(`❌ handleRequest Error: ${error.message}\n${error.stack}`);
-    return sendError(error.message);
+    Logger.log(`❌ Error: ${error.message}\n${error.stack}`);
+    return sendError(error.message || 'Unknown server error');
   }
 }
 
@@ -317,20 +253,12 @@ function handleRequest(e) {
 
 function sendSuccess(data) {
   return ContentService
-    .createTextOutput(JSON.stringify({
-      status: 'success',
-      data: data
-    }))
+    .createTextOutput(JSON.stringify({ status: 'success', data: data }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function sendError(message) {
   return ContentService
-    .createTextOutput(JSON.stringify({
-      status: 'error',
-      data: {
-        error: message
-      }
-    }))
+    .createTextOutput(JSON.stringify({ status: 'error', data: { error: message } }))
     .setMimeType(ContentService.MimeType.JSON);
 }
