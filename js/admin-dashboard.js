@@ -34,26 +34,6 @@ async function loadStats() {
         const classes = await api.getClasses();
         document.getElementById('totalClasses').textContent = classes.length || 0;
         
-        // NEW: Get scores count - total score records across all terms
-        try {
-            const term1Scores = await api.getStudentScores(null, 1);
-            const term2Scores = await api.getStudentScores(null, 2);
-            const term3Scores = await api.getStudentScores(null, 3);
-            const totalScores = (term1Scores ? term1Scores.length : 0) + 
-                                (term2Scores ? term2Scores.length : 0) + 
-                                (term3Scores ? term3Scores.length : 0);
-            const scoresElement = document.getElementById('totalScores');
-            if (scoresElement) {
-                scoresElement.textContent = totalScores;
-            }
-        } catch (scoreError) {
-            console.log('Could not load scores count:', scoreError.message);
-            const scoresElement = document.getElementById('totalScores');
-            if (scoresElement) {
-                scoresElement.textContent = 'N/A';
-            }
-        }
-        
     } catch (error) {
         console.error('Error loading stats:', error);
         document.getElementById('totalStudents').textContent = 'Error';
