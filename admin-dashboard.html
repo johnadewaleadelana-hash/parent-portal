@@ -78,14 +78,6 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-danger mb-3">
-                    <div class="card-body">
-                        <h6 class="card-title"><i class="fas fa-edit"></i> Scores</h6>
-                        <h2 id="totalScores">0</h2>
-                    </div>
-                </div>
-            </div>
         </div>
         
         <!-- Quick Actions -->
@@ -123,14 +115,22 @@
                             </div>
                             <div class="col-md-3 mb-3">
                                 <div class="quick-action-card text-center p-3 border rounded" 
+                                     onclick="location.href='admin-scores.html'" style="cursor:pointer;">
+                                    <i class="fas fa-edit fa-2x text-danger"></i>
+                                    <h6 class="mt-2 mb-0">Scores</h6>
+                                    <small class="text-muted">Enter and manage scores</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="quick-action-card text-center p-3 border rounded" 
                                      onclick="location.href='admin-classes.html'" style="cursor:pointer;">
                                     <i class="fas fa-users fa-2x text-purple"></i>
                                     <h6 class="mt-2 mb-0">Classes</h6>
                                     <small class="text-muted">Manage classes & promotion</small>
                                 </div>
                             </div>
-                        </div>
-                        <div class="row">
                             <div class="col-md-3 mb-3">
                                 <div class="quick-action-card text-center p-3 border rounded" 
                                      onclick="location.href='admin-pins.html'" style="cursor:pointer;">
@@ -150,17 +150,9 @@
                             <div class="col-md-3 mb-3">
                                 <div class="quick-action-card text-center p-3 border rounded" 
                                      onclick="location.href='admin-reports.html'" style="cursor:pointer;">
-                                    <i class="fas fa-file-alt fa-2x text-danger"></i>
+                                    <i class="fas fa-file-alt fa-2x text-dark"></i>
                                     <h6 class="mt-2 mb-0">Reports</h6>
                                     <small class="text-muted">Generate reports</small>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="quick-action-card text-center p-3 border rounded" 
-                                     onclick="location.href='admin-analytics.html'" style="cursor:pointer;">
-                                    <i class="fas fa-chart-pie fa-2x text-dark"></i>
-                                    <h6 class="mt-2 mb-0">Analytics</h6>
-                                    <small class="text-muted">View analytics</small>
                                 </div>
                             </div>
                         </div>

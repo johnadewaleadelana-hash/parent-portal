@@ -36,11 +36,21 @@ function displayStudentInfo() {
 
 async function loadDashboardData() {
     try {
-        // Force refresh by adding unique timestamp
         const studentId = studentData['Student ID'];
         
         // Get report data
         reportData = await api.getReport(studentId, 'Term3');
+        
+        // Guard: if reportData is null/undefined or has error, show placeholder
+        if (!reportData || reportData.error) {
+            console.error('Report data error:', reportData?.error || 'No data returned');
+            showNotification('No report data available for this student', 'warning');
+            // Show empty state
+            document.getElementById('averageScore').textContent = '--';
+            document.getElementById('subjectCount').textContent = '0';
+            document.getElementById('attendancePercent').textContent = '--';
+            return;
+        }
         
         // Update cards
         updatePerformanceCards();
@@ -52,36 +62,66 @@ async function loadDashboardData() {
         
     } catch (error) {
         console.error('Error loading report:', error);
-        showNotification('Error loading report data', 'error');
+        showNotification('Error loading report data. Please try again.', 'error');
+        
+        // Show placeholder values instead of crashing
+        const avgEl = document.getElementById('averageScore');
+        if (avgEl) avgEl.textContent = '--';
+        const subjEl = document.getElementById('subjectCount');
+        if (subjEl) subjEl.textContent = '0';
+        const attEl = document.getElementById('attendancePercent');
+        if (attEl) attEl.textContent = '--';
     }
 }
 
 function updatePerformanceCards() {
+    // SAFETY: Guard against null/undefined reportData
+    if (!reportData) {
+        console.warn('updatePerformanceCards: reportData is null');
+        return;
+    }
+    
     const avg = reportData.average || 0;
     const grade = reportData.grade || 'F';
     const gpa = reportData.gpa || 0;
     const gradeInfo = api.getGradeColor(grade);
     
     // Average
-    document.getElementById('averageScore').textContent = avg.toFixed(2);
-    document.getElementById('averageGrade').textContent = grade;
-    document.getElementById('averageGrade').style.backgroundColor = gradeInfo.color;
-    document.getElementById('averageGrade').style.color = '#fff';
+    const avgScoreEl = document.getElementById('averageScore');
+    if (avgScoreEl) avgScoreEl.textContent = avg.toFixed(2);
+    
+    const avgGradeEl = document.getElementById('averageGrade');
+    if (avgGradeEl) {
+        avgGradeEl.textContent = grade;
+        avgGradeEl.style.backgroundColor = gradeInfo.color;
+        avgGradeEl.style.color = '#fff';
+    }
     
     // GPA
-    document.getElementById('gpaScore').textContent = gpa.toFixed(2);
-    document.getElementById('gpaLabel').textContent = gpa >= 3.5 ? 'Excellent' : gpa >= 3.0 ? 'Very Good' : 'Good';
+    const gpaScoreEl = document.getElementById('gpaScore');
+    if (gpaScoreEl) gpaScoreEl.textContent = gpa.toFixed(2);
+    
+    const gpaLabelEl = document.getElementById('gpaLabel');
+    if (gpaLabelEl) {
+        gpaLabelEl.textContent = gpa >= 3.5 ? 'Excellent' : gpa >= 3.0 ? 'Very Good' : 'Good';
+    }
     
     // Subjects
     const scores = reportData.scores || [];
     const passed = scores.filter(s => s.cumulative && s.cumulative >= 40).length;
-    document.getElementById('subjectCount').textContent = scores.length;
-    document.getElementById('passedCount').textContent = passed + ' Passed';
+    
+    const subjCountEl = document.getElementById('subjectCount');
+    if (subjCountEl) subjCountEl.textContent = scores.length;
+    
+    const passedCountEl = document.getElementById('passedCount');
+    if (passedCountEl) passedCountEl.textContent = passed + ' Passed';
 }
 
 function updateSubjectList() {
     const container = document.getElementById('subjectList');
-    const scores = reportData.scores || [];
+    if (!container) return;
+    
+    const scores = reportData && reportData.scores ? reportData.scores : [];
     
     if (scores.length === 0) {
         container.innerHTML = '<div class="text-center text-muted py-3">No subject data available</div>';
@@ -139,14 +179,19 @@ function updateSubjectList() {
 }
 
 function updateAttendance() {
+    if (!reportData) return;
+    
     const attendance = reportData.attendance || {};
     const term3 = attendance.term3 || {};
     const timesOpened = term3['Times School Opened'] || 0;
     const timesPresent = term3['Times Present'] || 0;
     const percentage = timesOpened > 0 ? (timesPresent / timesOpened) * 100 : 0;
     
-    document.getElementById('attendancePercent').textContent = percentage.toFixed(1) + '%';
-    document.getElementById('attendanceDays').textContent = `${timesPresent}/${timesOpened} days`;
+    const attPercentEl = document.getElementById('attendancePercent');
+    if (attPercentEl) attPercentEl.textContent = percentage.toFixed(1) + '%';
+    
+    const attDaysEl = document.getElementById('attendanceDays');
+    if (attDaysEl) attDaysEl.textContent = `${timesPresent}/${timesOpened} days`;
 }
 
 // Session Timer
@@ -165,11 +210,13 @@ function startSessionTimer() {
 function updateTimerDisplay() {
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
-    document.getElementById('sessionTimer').textContent = 
-        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    
-    if (timeLeft < 60) {
-        document.getElementById('sessionTimer').style.color = '#dc3545';
+    const timerEl = document.getElementById('sessionTimer');
+    if (timerEl) {
+        timerEl.textContent = 
+            `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        if (timeLeft < 60) {
+            timerEl.style.color = '#dc3545';
+        }
     }
 }
 
@@ -183,7 +230,7 @@ function printReport() {
     window.location.href = 'parent-report.html?action=print';
 }
 
-// Logout - FIXED: redirect to index.html (landing page)
+// Logout - redirect to index.html (landing page)
 function logout() {
     sessionStorage.removeItem('parentStudent');
     sessionStorage.removeItem('parentPin');
