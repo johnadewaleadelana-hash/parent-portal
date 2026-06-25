@@ -1,7 +1,8 @@
 // js/parent-login.js
 // ============================================
 // Parent Login Logic
-// ============================================
+// The login form is on index.html, so this file redirects there
+// if no session is active (instead of parent-login.html which may not exist)
 
 document.addEventListener('DOMContentLoaded', function() {
     // Check if already logged in

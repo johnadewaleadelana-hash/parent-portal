@@ -1,5 +1,6 @@
 // js/admin-dashboard.js
 // ============================================
+// Admin Dashboard - Updated with Scores & Refresh
 
 document.addEventListener('DOMContentLoaded', async function() {
     const adminSession = sessionStorage.getItem('adminSession');
@@ -14,9 +15,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.error('Error loading dashboard:', error);
     }
 });
-
-// js/admin-dashboard.js - Updated loadStats()
-// ============================================
 
 async function loadStats() {
     try {
@@ -36,6 +34,26 @@ async function loadStats() {
         const classes = await api.getClasses();
         document.getElementById('totalClasses').textContent = classes.length || 0;
         
+        // NEW: Get scores count - total score records across all terms
+        try {
+            const term1Scores = await api.getStudentScores(null, 1);
+            const term2Scores = await api.getStudentScores(null, 2);
+            const term3Scores = await api.getStudentScores(null, 3);
+            const totalScores = (term1Scores ? term1Scores.length : 0) + 
+                                (term2Scores ? term2Scores.length : 0) + 
+                                (term3Scores ? term3Scores.length : 0);
+            const scoresElement = document.getElementById('totalScores');
+            if (scoresElement) {
+                scoresElement.textContent = totalScores;
+            }
+        } catch (scoreError) {
+            console.log('Could not load scores count:', scoreError.message);
+            const scoresElement = document.getElementById('totalScores');
+            if (scoresElement) {
+                scoresElement.textContent = 'N/A';
+            }
+        }
+        
     } catch (error) {
         console.error('Error loading stats:', error);
         document.getElementById('totalStudents').textContent = 'Error';
@@ -48,7 +66,12 @@ function adminLogout() {
 }
 
 async function refreshData() {
-    document.querySelector('.btn-outline-dark i').className = 'fas fa-spinner fa-spin';
+    const refreshBtn = document.querySelector('.btn-outline-dark i');
+    if (refreshBtn) {
+        refreshBtn.className = 'fas fa-spinner fa-spin';
+    }
     await loadStats();
-    document.querySelector('.btn-outline-dark i').className = 'fas fa-sync';
+    if (refreshBtn) {
+        refreshBtn.className = 'fas fa-sync';
+    }
 }

@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Check if logged in
     const storedStudent = sessionStorage.getItem('parentStudent');
     if (!storedStudent) {
-        window.location.href = 'parent-login.html';
+        window.location.href = 'index.html';
         return;
     }
     
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         startSessionTimer();
     } catch (e) {
         console.error('Error loading dashboard:', e);
-        window.location.href = 'parent-login.html';
+        window.location.href = 'index.html';
     }
 });
 
@@ -36,8 +36,11 @@ function displayStudentInfo() {
 
 async function loadDashboardData() {
     try {
+        // Force refresh by adding unique timestamp
+        const studentId = studentData['Student ID'];
+        
         // Get report data
-        reportData = await api.getReport(studentData['Student ID'], 'Term3');
+        reportData = await api.getReport(studentId, 'Term3');
         
         // Update cards
         updatePerformanceCards();
@@ -180,14 +183,14 @@ function printReport() {
     window.location.href = 'parent-report.html?action=print';
 }
 
-// Logout
+// Logout - FIXED: redirect to index.html (landing page)
 function logout() {
     sessionStorage.removeItem('parentStudent');
     sessionStorage.removeItem('parentPin');
     sessionStorage.removeItem('parentClass');
     sessionStorage.removeItem('parentReport');
     clearInterval(sessionTimer);
-    window.location.href = 'parent-login.html';
+    window.location.href = 'index.html';
 }
 
 // Notification Helper

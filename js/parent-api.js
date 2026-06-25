@@ -2,8 +2,8 @@
 // ============================================
 // School Report System - Parent Portal API Client
 //
-// This version ALWAYS uses a CORS proxy when running from GitHub Pages
-// because Google Apps Script does NOT set CORS headers on its responses.
+// FIXED: Added cache-busting _t parameter to prevent stale data
+// FIXED: Always uses CORS proxy from GitHub Pages
 
 class ParentAPI {
     constructor() {
@@ -13,11 +13,10 @@ class ParentAPI {
         this.currentStudent = null;
         this.currentReport = null;
         
-        // Determine if we're on GitHub Pages (need CORS proxy)
+        // Detect if running from GitHub Pages (needs CORS proxy)
         this.isGitHubPages = window.location.hostname.includes('github.io') || 
                              window.location.hostname.includes('netlify.app');
         
-        // CORS proxy - always use when on GitHub Pages
         this.corsProxyUrl = 'https://corsproxy.io/?';
         
         console.log(`🌐 Running from: ${window.location.hostname}`);
@@ -25,7 +24,7 @@ class ParentAPI {
     }
 
     // ============================================
-    // BASE API CALL - Always via GET (most reliable for CORS)
+    // BASE API CALL
     // ============================================
 
     async call(action, params = {}, method = 'GET') {
@@ -37,6 +36,9 @@ class ParentAPI {
             url.searchParams.append('action', action);
             url.searchParams.append('schoolId', this.schoolId);
             url.searchParams.append('apiKey', this.apiKey);
+            
+            // Add cache-busting timestamp to prevent stale cached responses
+            url.searchParams.append('_t', Date.now().toString());
             
             // Add action-specific params
             Object.entries(params).forEach(([key, value]) => {
@@ -51,11 +53,11 @@ class ParentAPI {
             
             // Wrap with CORS proxy if needed
             let fetchUrl = url.toString();
-            if (this.isGitHubPages || this.corsProxyEnabled) {
+            if (this.isGitHubPages) {
                 fetchUrl = this.corsProxyUrl + encodeURIComponent(fetchUrl);
             }
             
-            console.log('📤 Fetching URL (truncated):', fetchUrl.substring(0, 200) + '...');
+            console.log('📤 Fetching (truncated):', fetchUrl.substring(0, 200) + '...');
             
             const options = {
                 method: method,
@@ -70,21 +72,15 @@ class ParentAPI {
             const response = await fetch(fetchUrl, options);
             const text = await response.text();
             
-            console.log(`📥 Raw response (${action}):`, text.substring(0, 300));
+            console.log(`📥 Raw (${action}):`, text.substring(0, 300));
             
             // Check if response is HTML (error page from Google)
             if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-                // Extract error title if possible
                 const errorMatch = text.match(/<title>([^<]+)<\/title>/);
                 const errorTitle = errorMatch ? errorMatch[1] : 'Unknown Error';
                 
                 if (errorTitle === 'Error') {
-                    // The Google Apps Script itself is throwing an error
-                    // This likely means files are missing from the deployment
-                    throw new Error(`Apps Script returned an error. 
-➡️ This means the script deployment is incomplete or has errors.
-➡️ You must upload ALL .gs files to the Apps Script editor.
-➡️ Visit ${this.apiUrl}?action=test to see the actual error.`);
+                    throw new Error(`Apps Script returned an error. Re-deploy with ALL .gs files as "Anyone".`);
                 } else {
                     throw new Error(`Unexpected response: ${errorTitle}`);
                 }
@@ -95,10 +91,10 @@ class ParentAPI {
             try {
                 result = JSON.parse(text);
             } catch (e) {
-                throw new Error('Invalid JSON response from server');
+                throw new Error('Invalid JSON response from server. Response: ' + text.substring(0, 100));
             }
             
-            console.log(`📥 Parsed response (${action}):`, result);
+            console.log(`📥 Parsed (${action}):`, result);
             
             if (result.status === 'error') {
                 throw new Error(result.data?.error || 'Unknown API error');
@@ -117,14 +113,9 @@ class ParentAPI {
     // ============================================
 
     async test() {
-        try {
-            const result = await this.call('test');
-            console.log('✅ API test SUCCESS:', result);
-            return result;
-        } catch (error) {
-            console.error('❌ API test FAILED:', error.message);
-            throw error;
-        }
+        const result = await this.call('test');
+        console.log('✅ API test:', result);
+        return result;
     }
 
     // ============================================
@@ -132,16 +123,11 @@ class ParentAPI {
     // ============================================
 
     async validatePin(pin, className) {
-        const result = await this.call('validatePin', { 
-            pin: pin, 
-            class: className 
-        });
-        
+        const result = await this.call('validatePin', { pin, class: className });
         if (result.valid) {
             this.currentStudent = result.student;
             return result;
         }
-        
         throw new Error(result.message || 'Invalid PIN');
     }
 
@@ -350,4 +336,4 @@ class ParentAPI {
 
 // Create global instance
 const api = new ParentAPI();
-console.log('✅ ParentAPI initialized');
+console.log('✅ ParentAPI initialized (cache-busting enabled)');
