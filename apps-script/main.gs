@@ -179,15 +179,24 @@ function handleRequest(e) {
       case 'getAttendance':
         result = schoolManager.getAttendance(params.studentId, params.term);
         break;
+      case 'saveAttendance':
+        result = schoolManager.saveAttendance(params);
+        break;
         
       // BEHAVIORAL
       case 'getBehavioral':
         result = schoolManager.getBehavioral(params.studentId, params.term);
         break;
+      case 'saveBehavioral':
+        result = schoolManager.saveBehavioral(params);
+        break;
         
       // COMMENTS
       case 'getComments':
         result = schoolManager.getComments(params.studentId, params.term);
+        break;
+      case 'saveComment':
+        result = schoolManager.saveComment(params);
         break;
         
       // PINS
