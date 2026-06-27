@@ -31,6 +31,7 @@ class SchoolManager {
     this.transcriptManager = new TranscriptManager(this);
     this.broadsheetManager = new BroadsheetManager(this);
     this.analyticsManager = new AnalyticsManager(this);
+    this.teacherManager = new TeacherManager(this);
   }
   
   // ============================================

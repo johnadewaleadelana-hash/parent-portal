@@ -290,6 +290,26 @@ class ParentAPI {
     }
 
     // ============================================
+    // TEACHER METHODS
+    // ============================================
+
+    async teacherLogin(email, password) {
+        return await this.call('teacherLogin', { email, password });
+    }
+
+    async getTeacherStudents(teacherId, className = null) {
+        return await this.call('getTeacherStudents', { teacherId, class: className });
+    }
+
+    async getTeacherSubjects(teacherId, className = null) {
+        return await this.call('getTeacherSubjects', { teacherId, class: className });
+    }
+
+    async getTeacherClass(teacherId) {
+        return await this.call('getTeacherClass', { teacherId });
+    }
+
+    // ============================================
     // UTILITY METHODS
     // ============================================
 

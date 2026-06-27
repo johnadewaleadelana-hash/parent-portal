@@ -148,6 +148,21 @@ function handleRequest(e) {
       case 'getStudentScores':
         result = schoolManager.getStudentScores(params.studentId || null, params.term || null);
         break;
+      // TEACHER ACTIONS
+      case 'teacherLogin':
+        result = schoolManager.teacherManager.teacherLogin(params.email, params.password);
+        break;
+      case 'getTeacherStudents':
+        result = schoolManager.teacherManager.getTeacherStudents(params.teacherId, params.class || null);
+        break;
+      case 'getTeacherSubjects':
+        result = schoolManager.teacherManager.getTeacherSubjects(params.teacherId, params.class || null);
+        break;
+      case 'getTeacherClass':
+        result = schoolManager.teacherManager.getTeacherClass(params.teacherId);
+        break;
+        
+      // SCORES
       case 'saveScores':
         result = schoolManager.saveScores(params);
         break;
