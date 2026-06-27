@@ -1,7 +1,6 @@
 // js/parent-dashboard.js
 // ============================================
-// Parent Dashboard Logic
-// ============================================
+// Parent Dashboard Logic - Fixed timeout issues
 
 let studentData = null;
 let reportData = null;
@@ -9,7 +8,6 @@ let sessionTimer = null;
 let timeLeft = CONFIG.SESSION_TIMEOUT;
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Check if logged in
     const storedStudent = sessionStorage.getItem('parentStudent');
     if (!storedStudent) {
         window.location.href = 'index.html';
@@ -38,17 +36,20 @@ async function loadDashboardData() {
     try {
         const studentId = studentData['Student ID'];
         
-        // Get report data
-        reportData = await api.getReport(studentId, 'Term3');
+        // Try full report first (includes attendance, behavioral, comments)
+        try {
+            reportData = await api.getReport(studentId, 'Term3');
+        } catch (fullReportError) {
+            console.warn('Full report failed, trying quick report:', fullReportError.message);
+            // Fallback to quick report (just scores)
+            reportData = await api.getQuickReport(studentId);
+        }
         
         // Guard: if reportData is null/undefined or has error, show placeholder
         if (!reportData || reportData.error) {
             console.error('Report data error:', reportData?.error || 'No data returned');
             showNotification('No report data available for this student', 'warning');
-            // Show empty state
-            document.getElementById('averageScore').textContent = '--';
-            document.getElementById('subjectCount').textContent = '0';
-            document.getElementById('attendancePercent').textContent = '--';
+            setPlaceholders();
             return;
         }
         
@@ -63,19 +64,20 @@ async function loadDashboardData() {
     } catch (error) {
         console.error('Error loading report:', error);
         showNotification('Error loading report data. Please try again.', 'error');
-        
-        // Show placeholder values instead of crashing
-        const avgEl = document.getElementById('averageScore');
-        if (avgEl) avgEl.textContent = '--';
-        const subjEl = document.getElementById('subjectCount');
-        if (subjEl) subjEl.textContent = '0';
-        const attEl = document.getElementById('attendancePercent');
-        if (attEl) attEl.textContent = '--';
+        setPlaceholders();
     }
 }
 
+function setPlaceholders() {
+    const avgEl = document.getElementById('averageScore');
+    if (avgEl) avgEl.textContent = '--';
+    const subjEl = document.getElementById('subjectCount');
+    if (subjEl) subjEl.textContent = '0';
+    const attEl = document.getElementById('attendancePercent');
+    if (attEl) attEl.textContent = '--';
+}
+
 function updatePerformanceCards() {
-    // SAFETY: Guard against null/undefined reportData
     if (!reportData) {
         console.warn('updatePerformanceCards: reportData is null');
         return;
@@ -86,7 +88,6 @@ function updatePerformanceCards() {
     const gpa = reportData.gpa || 0;
     const gradeInfo = api.getGradeColor(grade);
     
-    // Average
     const avgScoreEl = document.getElementById('averageScore');
     if (avgScoreEl) avgScoreEl.textContent = avg.toFixed(2);
     
@@ -97,7 +98,6 @@ function updatePerformanceCards() {
         avgGradeEl.style.color = '#fff';
     }
     
-    // GPA
     const gpaScoreEl = document.getElementById('gpaScore');
     if (gpaScoreEl) gpaScoreEl.textContent = gpa.toFixed(2);
     
@@ -106,7 +106,6 @@ function updatePerformanceCards() {
         gpaLabelEl.textContent = gpa >= 3.5 ? 'Excellent' : gpa >= 3.0 ? 'Very Good' : 'Good';
     }
     
-    // Subjects
     const scores = reportData.scores || [];
     const passed = scores.filter(s => s.cumulative && s.cumulative >= 40).length;
     
@@ -133,10 +132,10 @@ function updateSubjectList() {
         <thead>
             <tr>
                 <th>Subject</th>
-                <th>Term 1</th>
-                <th>Term 2</th>
-                <th>Term 3</th>
-                <th>Cumulative</th>
+                <th>CA1</th>
+                <th>CA2</th>
+                <th>Exam</th>
+                <th>Total</th>
                 <th>Grade</th>
                 <th>Status</th>
             </tr>
@@ -145,25 +144,25 @@ function updateSubjectList() {
     `;
     
     scores.forEach(subject => {
-        const cumulative = subject.cumulative || 0;
+        const total = subject.total || subject.cumulative || 0;
         const grade = subject.grade || 'F';
         const gradeInfo = api.getGradeColor(grade);
-        const status = cumulative >= 70 ? '🌟 Distinction' : 
-                      cumulative >= 60 ? '✅ Very Good' : 
-                      cumulative >= 50 ? '✅ Credit' : 
-                      cumulative >= 40 ? '⚠️ Pass' : '❌ Fail';
-        const statusColor = cumulative >= 70 ? '#28a745' :
-                           cumulative >= 60 ? '#8bc34a' :
-                           cumulative >= 50 ? '#ffc107' :
-                           cumulative >= 40 ? '#fd7e14' : '#d32f2f';
+        const status = total >= 70 ? '🌟 Distinction' : 
+                      total >= 60 ? '✅ Very Good' : 
+                      total >= 50 ? '✅ Credit' : 
+                      total >= 40 ? '⚠️ Pass' : '❌ Fail';
+        const statusColor = total >= 70 ? '#28a745' :
+                           total >= 60 ? '#8bc34a' :
+                           total >= 50 ? '#ffc107' :
+                           total >= 40 ? '#fd7e14' : '#d32f2f';
         
         html += `
             <tr>
                 <td><strong>${subject.subject}</strong></td>
-                <td>${subject.term1 || '-'}</td>
-                <td>${subject.term2 || '-'}</td>
-                <td>${subject.term3 || '-'}</td>
-                <td><strong>${cumulative.toFixed(2)}</strong></td>
+                <td>${subject.ca1 || subject.term1 || '-'}</td>
+                <td>${subject.ca2 || subject.term2 || '-'}</td>
+                <td>${subject.exam || subject.term3 || '-'}</td>
+                <td><strong>${total.toFixed(2)}</strong></td>
                 <td>
                     <span class="grade-badge" style="background-color:${gradeInfo.color};color:#fff;padding:4px 10px;border-radius:4px;">
                         ${grade}
@@ -220,17 +219,15 @@ function updateTimerDisplay() {
     }
 }
 
-// Download PDF
 function downloadPDF() {
     window.location.href = 'parent-report.html?action=download';
 }
 
-// Print Report
 function printReport() {
     window.location.href = 'parent-report.html?action=print';
 }
 
-// Logout - redirect to index.html (landing page)
+// Logout - redirect to index.html
 function logout() {
     sessionStorage.removeItem('parentStudent');
     sessionStorage.removeItem('parentPin');
@@ -240,9 +237,7 @@ function logout() {
     window.location.href = 'index.html';
 }
 
-// Notification Helper
 function showNotification(message, type = 'success') {
-    // Create notification element
     const container = document.getElementById('notification-container') || 
                      (() => {
                          const div = document.createElement('div');

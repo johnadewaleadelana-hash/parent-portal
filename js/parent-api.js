@@ -1,9 +1,7 @@
 // js/parent-api.js - Complete Version (GitHub Pages Compatible)
 // ============================================
 // School Report System - Parent Portal API Client
-//
-// FIXED: Added cache-busting _t parameter to prevent stale data
-// FIXED: Always uses CORS proxy from GitHub Pages
+// FIXED: Handles proxy timeouts (504) gracefully
 
 class ParentAPI {
     constructor() {
@@ -13,34 +11,24 @@ class ParentAPI {
         this.currentStudent = null;
         this.currentReport = null;
         
-        // Detect if running from GitHub Pages (needs CORS proxy)
         this.isGitHubPages = window.location.hostname.includes('github.io') || 
                              window.location.hostname.includes('netlify.app');
-        
         this.corsProxyUrl = 'https://corsproxy.io/?';
         
         console.log(`🌐 Running from: ${window.location.hostname}`);
         console.log(`🔌 CORS proxy ${this.isGitHubPages ? 'ENABLED' : 'DISABLED'}`);
     }
 
-    // ============================================
-    // BASE API CALL
-    // ============================================
-
     async call(action, params = {}, method = 'GET') {
         try {
             console.log(`📤 API Call: ${action}`, params);
             
-            // Build URL with ALL parameters
             const url = new URL(this.apiUrl);
             url.searchParams.append('action', action);
             url.searchParams.append('schoolId', this.schoolId);
             url.searchParams.append('apiKey', this.apiKey);
-            
-            // Add cache-busting timestamp to prevent stale cached responses
             url.searchParams.append('_t', Date.now().toString());
             
-            // Add action-specific params
             Object.entries(params).forEach(([key, value]) => {
                 if (value !== undefined && value !== null) {
                     if (typeof value === 'object') {
@@ -51,17 +39,19 @@ class ParentAPI {
                 }
             });
             
-            // Wrap with CORS proxy if needed
             let fetchUrl = url.toString();
             if (this.isGitHubPages) {
                 fetchUrl = this.corsProxyUrl + encodeURIComponent(fetchUrl);
             }
             
-            console.log('📤 Fetching (truncated):', fetchUrl.substring(0, 200) + '...');
+            // Add timeout via AbortController
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
             
             const options = {
                 method: method,
-                headers: { 'Accept': 'application/json' }
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
             };
             
             if (method === 'POST') {
@@ -70,6 +60,7 @@ class ParentAPI {
             }
             
             const response = await fetch(fetchUrl, options);
+            clearTimeout(timeoutId);
             const text = await response.text();
             
             console.log(`📥 Raw (${action}):`, text.substring(0, 300));
@@ -78,12 +69,7 @@ class ParentAPI {
             if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
                 const errorMatch = text.match(/<title>([^<]+)<\/title>/);
                 const errorTitle = errorMatch ? errorMatch[1] : 'Unknown Error';
-                
-                if (errorTitle === 'Error') {
-                    throw new Error(`Apps Script returned an error. Re-deploy with ALL .gs files as "Anyone".`);
-                } else {
-                    throw new Error(`Unexpected response: ${errorTitle}`);
-                }
+                throw new Error(`Apps Script error: ${errorTitle}. Re-deploy with ALL .gs files.`);
             }
             
             // Parse JSON
@@ -91,10 +77,15 @@ class ParentAPI {
             try {
                 result = JSON.parse(text);
             } catch (e) {
-                throw new Error('Invalid JSON response from server. Response: ' + text.substring(0, 100));
+                throw new Error('Invalid JSON response: ' + text.substring(0, 100));
             }
             
             console.log(`📥 Parsed (${action}):`, result);
+            
+            // Handle proxy error responses (e.g. 504 from corsproxy.io)
+            if (result.error && result.error.status === 504) {
+                throw new Error(`Request timed out (${action} took too long). Try refreshing.`);
+            }
             
             if (result.status === 'error') {
                 throw new Error(result.data?.error || 'Unknown API error');
@@ -103,13 +94,17 @@ class ParentAPI {
             return result.data;
             
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.error(`❌ Timeout (${action}): Request exceeded 45s`);
+                throw new Error('Request timed out. The server took too long to respond.');
+            }
             console.error(`❌ API Error (${action}):`, error.message);
             throw error;
         }
     }
 
     // ============================================
-    // TEST METHOD - Use this first to verify API works
+    // TEST METHOD
     // ============================================
 
     async test() {
@@ -138,6 +133,36 @@ class ParentAPI {
             return report;
         }
         const report = await this.call('getReportCard', { studentId, term });
+        this.currentReport = report;
+        return report;
+    }
+
+    // Lightweight report - just scores for current term (faster than full cumulative)
+    async getQuickReport(studentId) {
+        const scores = await this.call('getStudentScores', { studentId, term: 3 });
+        const student = await this.call('getStudent', { studentId });
+        const subjects = await this.call('getSubjects', { class: student ? student['Class'] : null });
+        
+        const report = {
+            student: student || {},
+            scores: scores.map(s => {
+                const subject = subjects.find(sub => sub['Subject ID'] === s['Subject ID']);
+                return {
+                    subject: subject ? subject['Subject Name'] : 'Unknown',
+                    ca1: Number(s['CA1']) || 0,
+                    ca2: Number(s['CA2']) || 0,
+                    exam: Number(s['Exam']) || 0,
+                    total: Number(s['Total']) || 0,
+                    grade: s['Grade'] || 'F'
+                };
+            }),
+            average: scores.length > 0 ? scores.reduce((sum, s) => sum + (Number(s['Total']) || 0), 0) / scores.length : 0
+        };
+        
+        const avg = report.average;
+        report.grade = this.calculateGrade(avg);
+        report.gpa = this.calculateGPA(avg);
+        
         this.currentReport = report;
         return report;
     }
