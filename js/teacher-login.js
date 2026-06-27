@@ -25,6 +25,11 @@ document.addEventListener('DOMContentLoaded', function() {
         errorDiv.classList.add('d-none');
 
         try {
+            // Check if api.teacherLogin exists (confirms parent-api.js is up to date)
+            if (typeof api.teacherLogin !== 'function') {
+                showError('API client is outdated. Please refresh the page or clear browser cache.');
+                return;
+            }
             const result = await api.teacherLogin(email.value.trim(), password.value.trim());
             
             if (result.success) {
