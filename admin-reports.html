@@ -10,28 +10,27 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        .broadsheet-section { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
-        .broadsheet-section .section-header { background: #f8f9fa; padding: 16px 24px; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #1a237e; }
-        .broadsheet-section .section-body { padding: 24px; }
-        @media print { .no-print { display: none !important; } body { background: #fff; } .broadsheet-section { box-shadow: none; border: 1px solid #ddd; } }
-        .grade-a { background: #28a745; color: #fff; padding: 2px 8px; border-radius: 4px; }
-        .grade-b { background: #8bc34a; color: #fff; padding: 2px 8px; border-radius: 4px; }
-        .grade-c { background: #ffc107; color: #000; padding: 2px 8px; border-radius: 4px; }
-        .grade-d { background: #fd7e14; color: #fff; padding: 2px 8px; border-radius: 4px; }
-        .grade-e { background: #f44336; color: #fff; padding: 2px 8px; border-radius: 4px; }
-        .grade-f { background: #d32f2f; color: #fff; padding: 2px 8px; border-radius: 4px; }
+        .report-section { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+        .report-section .section-header { background: #f8f9fa; padding: 16px 24px; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #1a237e; }
+        .report-section .section-body { padding: 24px; }
+        @media print { .no-print { display: none !important; } body { background: #fff; } .report-section { box-shadow: none; border: 1px solid #ddd; } }
+        .grade-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; color: #fff; font-weight: 600; font-size: 12px; }
+        .grade-A { background: #28a745; } .grade-B { background: #8bc34a; } .grade-C { background: #ffc107; color: #000; }
+        .grade-D { background: #fd7e14; } .grade-E { background: #f44336; } .grade-F { background: #d32f2f; }
         .broad-table { font-size: 13px; }
-        .broad-table th { background: #1a237e; color: #fff; font-weight: 600; white-space: nowrap; }
-        .broad-table td { vertical-align: middle; }
-        .broad-table .rank-col { width: 40px; text-align: center; font-weight: 700; }
-        .sum-row { background: #e8eaf6 !important; font-weight: 600; }
+        .broad-table th { background: #1a237e; color: #fff; font-weight: 600; white-space: nowrap; text-align: center; }
+        .broad-table td { vertical-align: middle; text-align: center; }
+        .broad-table .student-name { text-align: left; font-weight: 600; }
+        .sum-row { background: #e8eaf6 !important; font-weight: 700; }
         .school-header { text-align: center; padding: 20px; border-bottom: 2px solid #1a237e; margin-bottom: 15px; }
-        .school-header h2 { color: #1a237e; margin: 0; }
-        .school-header p { margin: 5px 0 0; color: #666; }
+        .school-header h2 { color: #1a237e; margin: 0; font-size: 24px; }
+        .school-header p { margin: 3px 0 0; color: #666; font-size: 13px; }
         .export-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-        .student-row:nth-child(even) { background: #f8f9fa; }
-        .min-format { border: 2px solid #1a237e; padding: 4px; background: #fff; }
-        .min-format-header { background: #1a237e; color: #fff; padding: 10px 20px; display: flex; justify-content: space-between; }
+        .min-format-active { border: 2px solid #1a237e; padding: 20px; background: #fff; }
+        .display-options label { font-size: 13px; margin-right: 15px; cursor: pointer; }
+        .display-options input { margin-right: 4px; }
+        .stat-card { border-radius: 8px; }
+        .school-logo-img { max-height: 60px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -57,8 +56,8 @@
         </div>
 
         <!-- Controls -->
-        <div class="broadsheet-section no-print">
-            <div class="section-header"><i class="fas fa-cog"></i> Generate Broadsheet</div>
+        <div class="report-section no-print">
+            <div class="section-header"><i class="fas fa-cog"></i> Broadsheet Generator</div>
             <div class="section-body">
                 <div class="row g-3">
                     <div class="col-md-3">
@@ -70,26 +69,27 @@
                         <select class="form-select" id="brTerm"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3" selected>Term 3</option></select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Type</label>
+                        <label class="form-label">Broadsheet Type</label>
                         <select class="form-select" id="brType">
-                            <option value="full">Full Class (All Subjects)</option>
-                            <option value="subject">Subject Specific</option>
-                            <option value="summary">Summary (School)</option>
+                            <option value="full">Full Class Broadsheet</option>
+                            <option value="subject">Subject Broadsheet</option>
+                            <option value="summary">Summary Broadsheet</option>
                         </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Subject (for Subject type)</label>
-                        <select class="form-select" id="brSubject"><option value="">All</option></select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <button class="btn btn-primary w-100" onclick="generateBroadsheet()"><i class="fas fa-file"></i> Generate</button>
                     </div>
                 </div>
                 <div class="row mt-3">
-                    <div class="col-md-2">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="minFormat" onchange="toggleMinFormat()">
-                            <label class="form-check-label">Ministry Format</label>
+                    <div class="col-12">
+                        <div class="display-options">
+                            <strong class="me-3">Display:</strong>
+                            <label><input type="checkbox" id="showCA1" checked> Show CA1</label>
+                            <label><input type="checkbox" id="showCA2" checked> Show CA2</label>
+                            <label><input type="checkbox" id="showExam" checked> Show Exam</label>
+                            <label><input type="checkbox" id="showGrade" checked> Show Grade</label>
+                            <label><input type="checkbox" id="showRank" checked> Show Ranking</label>
+                            <label class="ms-3"><input type="checkbox" id="minFormat"> Ministry Format</label>
                         </div>
                     </div>
                 </div>
@@ -98,19 +98,19 @@
 
         <!-- Loading -->
         <div id="loadingState" class="text-center py-5 d-none">
-            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
-            <p class="mt-2 text-muted">Generating broadsheet...</p>
+            <div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem;"><span class="visually-hidden">Loading...</span></div>
+            <p class="mt-3 text-muted">Generating broadsheet...</p>
         </div>
 
         <!-- Broadsheet Preview -->
         <div id="broadPreview" class="d-none">
             <!-- Export Bar -->
-            <div class="broadsheet-section no-print">
+            <div class="report-section no-print">
                 <div class="section-body">
                     <div class="export-bar">
-                        <button class="btn btn-success" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
-                        <button class="btn btn-danger" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
-                        <button class="btn btn-info text-white" onclick="exportCSV()"><i class="fas fa-file-csv"></i> CSV</button>
+                        <button class="btn btn-success" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+                        <button class="btn btn-danger" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                        <button class="btn btn-info text-white" onclick="exportCSV()"><i class="fas fa-file-csv"></i> Export CSV</button>
                         <button class="btn btn-dark" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
                     </div>
                 </div>
@@ -119,10 +119,11 @@
             <!-- Broadsheet Content -->
             <div id="broadContent">
                 <div class="school-header">
+                    <div id="bsLogo"></div>
                     <h2 id="bsSchoolName">L'école Peniel</h2>
                     <p id="bsSchoolAddress">Along AAUA Permanent Site Road, Akungba Akoko, Ondo State</p>
-                    <h4 id="bsTitle" class="mt-2" style="color:#1a237e;">Year 4 - Term 3 Broadsheet</h4>
-                    <small id="bsSubtitle" class="text-muted">Academic Year: 2024/2025 | Generated: <span id="bsDate"></span></small>
+                    <h4 id="bsTitle" class="mt-2" style="color:#1a237e;">Class Broadsheet</h4>
+                    <small class="text-muted">Academic Year: <span id="bsYear">2024/2025</span> | Generated: <span id="bsDate"></span></small>
                 </div>
 
                 <!-- Full Class Broadsheet -->
@@ -138,6 +139,7 @@
 
                 <!-- Subject Broadsheet -->
                 <div id="subjectView" class="d-none">
+                    <h5 class="text-center mb-3" id="subjectTitle">Subject: </h5>
                     <div class="table-responsive">
                         <table class="table table-bordered broad-table" id="subjectTable">
                             <thead><tr><th>#</th><th>Student</th><th>CA1 (20)</th><th>CA2 (20)</th><th>Exam (60)</th><th>Total (100)</th><th>Grade</th><th>Remark</th><th>Rank</th></tr></thead>
@@ -146,7 +148,7 @@
                     </div>
                 </div>
 
-                <!-- Summary View -->
+                <!-- Summary Broadsheet -->
                 <div id="summaryView" class="d-none">
                     <div class="table-responsive">
                         <table class="table table-bordered broad-table" id="summaryTable">
@@ -156,23 +158,26 @@
                     </div>
                 </div>
 
-                <!-- Statistics Summary -->
+                <!-- Statistics -->
                 <div class="row g-3 mt-3" id="statsRow">
-                    <div class="col-md-3"><div class="card bg-primary text-white"><div class="card-body text-center"><h6>Students</h6><h3 id="statStudents">0</h3></div></div></div>
-                    <div class="col-md-3"><div class="card bg-success text-white"><div class="card-body text-center"><h6>Class Average</h6><h3 id="statAverage">0.0</h3></div></div></div>
-                    <div class="col-md-3"><div class="card bg-warning text-dark"><div class="card-body text-center"><h6>Pass Rate</h6><h3 id="statPassRate">0%</h3></div></div></div>
-                    <div class="col-md-3"><div class="card bg-info text-white"><div class="card-body text-center"><h6>Distinctions</h6><h3 id="statDistinctions">0</h3></div></div></div>
+                    <div class="col-md-3"><div class="card stat-card bg-primary text-white"><div class="card-body text-center py-3"><h6>Total Students</h6><h3 id="statStudents" class="mb-0">0</h3></div></div></div>
+                    <div class="col-md-3"><div class="card stat-card bg-success text-white"><div class="card-body text-center py-3"><h6>Class Average</h6><h3 id="statAverage" class="mb-0">0.0</h3></div></div></div>
+                    <div class="col-md-3"><div class="card stat-card bg-warning text-dark"><div class="card-body text-center py-3"><h6>Pass Rate</h6><h3 id="statPassRate" class="mb-0">0%</h3></div></div></div>
+                    <div class="col-md-3"><div class="card stat-card bg-info text-white"><div class="card-body text-center py-3"><h6>Distinctions</h6><h3 id="statDistinctions" class="mb-0">0</h3></div></div></div>
+                </div>
+
+                <div class="text-center text-muted mt-3" style="font-size:12px;">
+                    Generated by School Report System | <span id="bsDate2"></span>
                 </div>
             </div>
         </div>
 
         <div id="emptyState" class="text-center py-5 text-muted">
             <i class="fas fa-file-alt fa-4x mb-3"></i>
-            <p>Select a class and generate a broadsheet</p>
+            <p>Select a class, configure options, and click Generate</p>
         </div>
     </div>
 
-    <!-- Toast -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
         <div id="toastMessage" class="toast align-items-center text-white border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button></div></div>
     </div>

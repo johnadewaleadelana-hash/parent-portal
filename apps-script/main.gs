@@ -166,6 +166,12 @@ function handleRequest(e) {
       case 'saveScores':
         result = schoolManager.saveScores(params);
         break;
+      case 'importStudents':
+        result = schoolManager.studentManager.importStudents(params.students || []);
+        break;
+      case 'importScores':
+        result = schoolManager.scoreManager.importScores(params.scores || []);
+        break;
         
       // REPORTS
       case 'getReportCard':

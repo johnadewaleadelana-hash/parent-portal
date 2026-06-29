@@ -1,37 +1,43 @@
 // js/admin-reports.js
 // ============================================
 // Admin - Reports & Broadsheet Generation
+// Features: Full Class, Subject, Summary broadsheets
+// Export: Excel (xlsx), PDF, CSV, Print
+// Display toggles for CA1, CA2, Exam, Grade, Rank
+// Ministry Format toggle
 
 let currentBroadsheet = null;
-let currentClasses = [];
-let currentSubjects = [];
+let allSubjects = [];
 
 document.addEventListener('DOMContentLoaded', async function() {
     const adminSession = sessionStorage.getItem('adminSession');
     if (!adminSession) { window.location.href = 'admin-login.html'; return; }
     
     try {
-        currentClasses = await api.getClasses();
-        const activeClasses = currentClasses.filter(c => c['Is Active'] === 'Yes' || !c['Is Active']);
-        populateSelect('brClass', activeClasses, 'Class Name', 'Class Name');
-        
-        document.getElementById('brType').addEventListener('change', function() {
-            document.getElementById('brSubject').style.display = this.value === 'subject' ? 'block' : 'none';
+        const classes = await api.getClasses();
+        const sel = document.getElementById('brClass');
+        sel.innerHTML = '<option value="">Select class...</option>';
+        classes.forEach(c => {
+            sel.innerHTML += `<option value="${c['Class Name']}">${c['Class Name']}</option>`;
         });
-        document.getElementById('brSubject').style.display = 'none';
+        
+        // Load subjects for later use
+        allSubjects = await api.getSubjects();
+        
+        // Ministry format toggle
+        document.getElementById('minFormat').addEventListener('change', function() {
+            const content = document.getElementById('broadContent');
+            if (this.checked) {
+                content.classList.add('min-format-active');
+            } else {
+                content.classList.remove('min-format-active');
+            }
+        });
+        
     } catch (e) {
         showToast('Error loading data: ' + e.message, 'danger');
     }
 });
-
-function populateSelect(id, data, labelField, valueField) {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Select...</option>';
-    data.forEach(item => {
-        sel.innerHTML += `<option value="${item[valueField]}">${item[labelField]}</option>`;
-    });
-}
 
 // ============================================
 // GENERATE BROADSHEET
@@ -42,8 +48,9 @@ async function generateBroadsheet() {
     const term = document.getElementById('brTerm').value;
     const type = document.getElementById('brType').value;
     
-    if (!className) { showToast('Select a class', 'warning'); return; }
+    if (!className) { showToast('Please select a class', 'warning'); return; }
     
+    // Show loading
     document.getElementById('loadingState').classList.remove('d-none');
     document.getElementById('broadPreview').classList.add('d-none');
     document.getElementById('emptyState').classList.add('d-none');
@@ -60,14 +67,16 @@ async function generateBroadsheet() {
         
         currentBroadsheet = data;
         
-        // Set header
+        // Set school header info
+        const now = new Date();
         document.getElementById('bsTitle').textContent = `${className} - Term ${term} Broadsheet`;
-        document.getElementById('bsDate').textContent = new Date().toLocaleDateString();
+        document.getElementById('bsDate').textContent = now.toLocaleDateString('en-GB');
+        document.getElementById('bsDate2').textContent = now.toLocaleDateString('en-GB');
         
         // Render based on type
-        if (type === 'full') renderFullBroadsheet(data);
-        else if (type === 'subject') renderSubjectBroadsheet(data);
-        else if (type === 'summary') renderSummaryBroadsheet(data);
+        if (type === 'full') renderFullBroadsheet(data, className, term);
+        else if (type === 'subject') renderSubjectBroadsheet(data, className, term);
+        else if (type === 'summary') renderSummaryBroadsheet(term);
         
         // Update stats
         document.getElementById('statStudents').textContent = data.summary?.totalStudents || data.students?.length || 0;
@@ -87,59 +96,103 @@ async function generateBroadsheet() {
 }
 
 // ============================================
-// RENDER FULL BROADSHEET
+// RENDER FULL CLASS BROADSHEET
 // ============================================
 
-function renderFullBroadsheet(data) {
+function renderFullBroadsheet(data, className, term) {
     document.getElementById('fullView').classList.remove('d-none');
     document.getElementById('subjectView').classList.add('d-none');
     document.getElementById('summaryView').classList.add('d-none');
     
+    const showCA1 = document.getElementById('showCA1').checked;
+    const showCA2 = document.getElementById('showCA2').checked;
+    const showExam = document.getElementById('showExam').checked;
+    const showGrade = document.getElementById('showGrade').checked;
+    const showRank = document.getElementById('showRank').checked;
+    
+    // Get subjects for this class
+    const classSubjects = allSubjects.filter(s => s['Class'] === className);
     const students = data.students || [];
-    const subjects = Object.keys(students[0]?.subjects || {});
     
     // Build header
-    let headerHtml = '<th>#</th><th>Student</th><th>ID</th>';
-    subjects.forEach(subjId => {
-        const subj = currentClasses.length ? { name: subjId } : { name: subjId };
-        headerHtml += `<th>${subjId}<br><small>CA1/CA2/Exam/Total</small></th>`;
+    let headerHtml = '<th>#</th><th class="student-name">Student Name</th><th>Student ID</th>';
+    
+    classSubjects.forEach(subj => {
+        const subjName = subj['Subject Name'] || subj['Subject ID'];
+        headerHtml += `<th>${subjName}<br><small>`;
+        if (showCA1) headerHtml += 'CA1 ';
+        if (showCA2) headerHtml += 'CA2 ';
+        if (showExam) headerHtml += 'Exam ';
+        headerHtml += 'Total</small></th>';
     });
-    headerHtml += '<th>Total</th><th>Average</th><th>Grade</th><th>Rank</th>';
+    
+    headerHtml += '<th>Total Score</th><th>Average</th>';
+    if (showGrade) headerHtml += '<th>Grade</th>';
+    if (showRank) headerHtml += '<th>Rank</th>';
     document.getElementById('fullHeader').innerHTML = headerHtml;
     
     // Build body
     let bodyHtml = '';
     students.forEach((s, i) => {
-        const gradeClass = getGradeClass(s.grade);
-        let rowHtml = `<tr class="student-row"><td>${i+1}</td><td><strong>${s.name}</strong></td><td>${s.id}</td>`;
+        const gradeClass = 'grade-' + (s.grade || 'F');
+        let rowHtml = `<tr class="student-row"><td>${i+1}</td><td class="student-name">${s.name}</td><td>${s.id}</td>`;
         
         let studentTotal = 0;
         let studentCount = 0;
         
-        subjects.forEach(subjId => {
-            const sub = s.subjects[subjId];
+        classSubjects.forEach(subj => {
+            const sub = s.subjects && s.subjects[subj['Subject ID']] ? s.subjects[subj['Subject ID']] : null;
+            rowHtml += '<td>';
             if (sub && sub.total > 0) {
-                rowHtml += `<td class="text-center"><small>${sub.ca1}/${sub.ca2}/${sub.exam}</small><br><strong>${sub.total}</strong> <span class="${getGradeClass(sub.grade)}">${sub.grade}</span></td>`;
+                if (showCA1) rowHtml += `<small>${sub.ca1}</small> `;
+                if (showCA2) rowHtml += `<small>${sub.ca2}</small> `;
+                if (showExam) rowHtml += `<small>${sub.exam}</small> `;
+                rowHtml += `<br><strong>${sub.total}</strong>`;
+                rowHtml += ` <span class="grade-badge grade-${sub.grade}">${sub.grade}</span>`;
                 studentTotal += sub.total;
                 studentCount++;
             } else {
-                rowHtml += `<td class="text-center text-muted">-</td>`;
+                rowHtml += '-';
             }
+            rowHtml += '</td>';
         });
         
         const avg = studentCount > 0 ? (studentTotal / studentCount) : 0;
-        rowHtml += `<td><strong>${studentTotal}</strong></td><td>${avg.toFixed(1)}</td><td><span class="${gradeClass}">${s.grade}</span></td><td class="rank-col">${s.rank}</td></tr>`;
+        rowHtml += `<td><strong>${studentTotal}</strong></td><td>${avg.toFixed(1)}</td>`;
+        if (showGrade) rowHtml += `<td><span class="grade-badge ${gradeClass}">${s.grade}</span></td>`;
+        if (showRank) rowHtml += `<td class="fw-bold">${s.rank}</td>`;
+        rowHtml += '</tr>';
         bodyHtml += rowHtml;
     });
     document.getElementById('fullBody').innerHTML = bodyHtml;
     
     // Build footer (subject averages)
     let footerHtml = '<tr class="sum-row"><td colspan="3"><strong>Subject Averages</strong></td>';
-    subjects.forEach(subjId => {
-        const avg = data.summary?.subjectAverages?.[subjId] || 0;
-        footerHtml += `<td class="text-center"><strong>${avg.toFixed(1)}</strong></td>`;
+    classSubjects.forEach(subj => {
+        const avg = data.summary?.subjectAverages?.[subj['Subject ID']] || 0;
+        footerHtml += `<td><strong>${avg.toFixed(1)}</strong></td>`;
     });
-    footerHtml += `<td></td><td><strong>${(data.summary?.overallAverage || 0).toFixed(1)}</strong></td><td></td><td></td></tr>`;
+    footerHtml += `<td></td><td><strong>${(data.summary?.overallAverage || 0).toFixed(1)}</strong></td>`;
+    if (showGrade) footerHtml += '<td></td>';
+    if (showRank) footerHtml += '<td></td>';
+    footerHtml += '</tr>';
+    
+    // Add pass rate row
+    footerHtml += `<tr class="sum-row"><td colspan="3"><strong>Pass Rate</strong></td>`;
+    classSubjects.forEach(subj => {
+        let passCount = 0, totalCount = 0;
+        students.forEach(s => {
+            const sub = s.subjects && s.subjects[subj['Subject ID']] ? s.subjects[subj['Subject ID']] : null;
+            if (sub && sub.total > 0) { totalCount++; if (sub.total >= 40) passCount++; }
+        });
+        const pct = totalCount > 0 ? Math.round((passCount/totalCount)*100) : 0;
+        footerHtml += `<td>${pct}%</td>`;
+    });
+    footerHtml += '<td></td><td></td>';
+    if (showGrade) footerHtml += '<td></td>';
+    if (showRank) footerHtml += '<td></td>';
+    footerHtml += '</tr>';
+    
     document.getElementById('fullFooter').innerHTML = footerHtml;
 }
 
@@ -147,31 +200,52 @@ function renderFullBroadsheet(data) {
 // RENDER SUBJECT BROADSHEET
 // ============================================
 
-function renderSubjectBroadsheet(data) {
+function renderSubjectBroadsheet(data, className, term) {
     document.getElementById('fullView').classList.add('d-none');
     document.getElementById('subjectView').classList.remove('d-none');
     document.getElementById('summaryView').classList.add('d-none');
     
+    const showCA1 = document.getElementById('showCA1').checked;
+    const showCA2 = document.getElementById('showCA2').checked;
+    const showExam = document.getElementById('showExam').checked;
+    const showGrade = document.getElementById('showGrade').checked;
+    const showRank = document.getElementById('showRank').checked;
+    
+    const classSubjects = allSubjects.filter(s => s['Class'] === className);
+    const subjectName = classSubjects.length > 0 ? classSubjects[0]['Subject Name'] : 'All Subjects';
+    document.getElementById('subjectTitle').textContent = `Subject: ${subjectName} - ${className} (Term ${term})`;
+    
+    // Rebuild header based on display options
+    const table = document.getElementById('subjectTable');
+    let headerHtml = '<tr><th>#</th><th>Student</th>';
+    if (showCA1) headerHtml += '<th>CA1 (20)</th>';
+    if (showCA2) headerHtml += '<th>CA2 (20)</th>';
+    if (showExam) headerHtml += '<th>Exam (60)</th>';
+    headerHtml += '<th>Total (100)</th>';
+    if (showGrade) headerHtml += '<th>Grade</th>';
+    headerHtml += '<th>Remark</th>';
+    if (showRank) headerHtml += '<th>Rank</th>';
+    headerHtml += '</tr>';
+    table.querySelector('thead').innerHTML = headerHtml;
+    
+    // Build body
     const students = data.students || [];
     let bodyHtml = '';
     
     students.forEach((s, i) => {
-        const gradeClass = getGradeClass(s.grade);
-        // For subject view, show first subject's data
-        const subjKeys = Object.keys(s.subjects);
-        const firstSubj = subjKeys.length > 0 ? s.subjects[subjKeys[0]] : null;
+        const gradeClass = 'grade-' + (s.grade || 'F');
+        const firstSubjKey = s.subjects ? Object.keys(s.subjects)[0] : null;
+        const sub = firstSubjKey ? s.subjects[firstSubjKey] : null;
         
-        bodyHtml += `<tr class="student-row">
-            <td>${i+1}</td>
-            <td><strong>${s.name}</strong></td>
-            <td>${firstSubj ? firstSubj.ca1 : '-'}</td>
-            <td>${firstSubj ? firstSubj.ca2 : '-'}</td>
-            <td>${firstSubj ? firstSubj.exam : '-'}</td>
-            <td><strong>${firstSubj ? firstSubj.total : '-'}</strong></td>
-            <td><span class="${gradeClass}">${firstSubj ? firstSubj.grade : '-'}</span></td>
-            <td>${firstSubj ? firstSubj.remark : '-'}</td>
-            <td class="rank-col">${s.rank}</td>
-        </tr>`;
+        bodyHtml += `<tr class="student-row"><td>${i+1}</td><td class="student-name">${s.name}</td>`;
+        if (showCA1) bodyHtml += `<td>${sub ? sub.ca1 : '-'}</td>`;
+        if (showCA2) bodyHtml += `<td>${sub ? sub.ca2 : '-'}</td>`;
+        if (showExam) bodyHtml += `<td>${sub ? sub.exam : '-'}</td>`;
+        bodyHtml += `<td><strong>${sub ? sub.total : '-'}</strong></td>`;
+        if (showGrade) bodyHtml += `<td><span class="grade-badge ${gradeClass}">${sub ? sub.grade : '-'}</span></td>`;
+        bodyHtml += `<td>${sub ? (sub.remark || '-') : '-'}</td>`;
+        if (showRank) bodyHtml += `<td class="fw-bold">${s.rank}</td>`;
+        bodyHtml += '</tr>';
     });
     document.getElementById('subjectBody').innerHTML = bodyHtml;
 }
@@ -180,35 +254,45 @@ function renderSubjectBroadsheet(data) {
 // RENDER SUMMARY BROADSHEET
 // ============================================
 
-async function renderSummaryBroadsheet(data) {
+async function renderSummaryBroadsheet(term) {
     document.getElementById('fullView').classList.add('d-none');
     document.getElementById('subjectView').classList.add('d-none');
     document.getElementById('summaryView').classList.remove('d-none');
     
-    const term = document.getElementById('brTerm').value;
-    let bodyHtml = '';
-    
     try {
         const schoolData = await api.getSchoolAnalysis(term);
         const classes = schoolData.classAnalyses || [];
+        let bodyHtml = '';
         
         classes.forEach((c, i) => {
             const perfClass = c.average >= 70 ? 'text-success' : c.average >= 50 ? 'text-warning' : 'text-danger';
-            const perfIcon = c.average >= 70 ? 'fa-star' : c.average >= 50 ? 'fa-check' : 'fa-exclamation';
+            const perfIcon = c.average >= 70 ? 'fa-star' : c.average >= 50 ? 'fa-check-circle' : 'fa-exclamation-triangle';
+            const perfLabel = c.average >= 70 ? 'Excellent' : c.average >= 50 ? 'Good' : 'Needs Improvement';
+            
             bodyHtml += `<tr>
                 <td>${i+1}</td>
-                <td><strong>${c.className}</strong></td>
-                <td>${c.students}</td>
-                <td>${(c.average || 0).toFixed(1)}</td>
+                <td class="student-name">${c.className}</td>
+                <td>${c.students || 0}</td>
+                <td><strong>${(c.average || 0).toFixed(1)}</strong></td>
                 <td>${c.passRate || 0}%</td>
                 <td>${c.distinctionCount || 0}</td>
-                <td class="${perfClass}"><i class="fas ${perfIcon}"></i></td>
+                <td class="${perfClass}"><i class="fas ${perfIcon}"></i> ${perfLabel}</td>
             </tr>`;
         });
+        
+        if (classes.length === 0) {
+            bodyHtml = '<tr><td colspan="7" class="text-center text-muted py-3">No data available</td></tr>';
+        }
+        document.getElementById('summaryBody').innerHTML = bodyHtml;
+        
+        // Override stats for summary view
+        document.getElementById('statStudents').textContent = schoolData.totalStudents || 0;
+        document.getElementById('statAverage').textContent = (schoolData.overallAverage || 0).toFixed(1);
+        document.getElementById('statPassRate').textContent = (schoolData.totalPassRate || 0) + '%';
+        
     } catch (e) {
-        bodyHtml = `<tr><td colspan="7" class="text-center text-muted">Error loading summary</td></tr>`;
+        document.getElementById('summaryBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error: ${e.message}</td></tr>`;
     }
-    document.getElementById('summaryBody').innerHTML = bodyHtml;
 }
 
 // ============================================
@@ -218,69 +302,64 @@ async function renderSummaryBroadsheet(data) {
 function exportExcel() {
     if (!currentBroadsheet) { showToast('Generate a broadsheet first', 'warning'); return; }
     
-    const wsData = [['Student', 'ID', 'Average', 'Grade', 'Remark', 'Rank']];
-    (currentBroadsheet.students || []).forEach(s => {
-        wsData.push([s.name, s.id, s.average, s.grade, s.remark, s.rank]);
+    const students = currentBroadsheet.students || [];
+    const wsData = [['Student Name', 'Student ID', 'Average', 'Grade', 'Remark', 'Rank']];
+    
+    students.forEach(s => {
+        wsData.push([s.name, s.id, s.average || 0, s.grade || '', s.remark || '', s.rank || '']);
     });
     
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     XLSX.utils.book_append_sheet(wb, ws, 'Broadsheet');
-    XLSX.writeFile(wb, `broadsheet_${currentBroadsheet.className}_Term${document.getElementById('brTerm').value}.xlsx`);
-    showToast('Excel downloaded!', 'success');
+    
+    const className = document.getElementById('brClass').value || 'class';
+    const term = document.getElementById('brTerm').value || '1';
+    XLSX.writeFile(wb, `broadsheet_${className}_Term${term}.xlsx`);
+    showToast('Excel file downloaded!', 'success');
 }
 
 function exportPDF() {
     if (!currentBroadsheet) { showToast('Generate a broadsheet first', 'warning'); return; }
     
     const element = document.getElementById('broadContent');
+    const className = document.getElementById('brClass').value || 'class';
+    const term = document.getElementById('brTerm').value || '1';
+    
     const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `broadsheet_${currentBroadsheet.className}_Term${document.getElementById('brTerm').value}.pdf`,
+        margin: [8, 8, 8, 8],
+        filename: `broadsheet_${className}_Term${term}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
     html2pdf().set(opt).from(element).save();
-    showToast('PDF generated!', 'success');
+    showToast('PDF generating...', 'success');
 }
 
 function exportCSV() {
     if (!currentBroadsheet) { showToast('Generate a broadsheet first', 'warning'); return; }
     
-    let csv = 'Student,ID,Average,Grade,Remark,Rank\n';
+    let csv = 'Student Name,Student ID,Average,Grade,Remark,Rank\n';
     (currentBroadsheet.students || []).forEach(s => {
-        csv += `"${s.name}",${s.id},${s.average},${s.grade},"${s.remark}",${s.rank}\n`;
+        csv += `"${s.name}",${s.id},${s.average || 0},${s.grade || ''},"${s.remark || ''}",${s.rank || ''}\n`;
     });
     
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `broadsheet_${currentBroadsheet.className}_Term${document.getElementById('brTerm').value}.csv`;
+    const className = document.getElementById('brClass').value || 'class';
+    const term = document.getElementById('brTerm').value || '1';
+    a.download = `broadsheet_${className}_Term${term}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('CSV downloaded!', 'success');
+    showToast('CSV file downloaded!', 'success');
 }
 
-function toggleMinFormat() {
-    const checked = document.getElementById('minFormat').checked;
-    const content = document.getElementById('broadContent');
-    if (checked) {
-        content.style.border = '2px solid #1a237e';
-        content.style.padding = '20px';
-        content.style.background = '#fff';
-    } else {
-        content.style.border = 'none';
-        content.style.padding = '0';
-        content.style.background = 'transparent';
-    }
-}
-
-function getGradeClass(grade) {
-    const map = { 'A': 'grade-a', 'B': 'grade-b', 'C': 'grade-c', 'D': 'grade-d', 'E': 'grade-e', 'F': 'grade-f' };
-    return map[grade] || '';
-}
+// ============================================
+// TOAST & LOGOUT
+// ============================================
 
 function showToast(msg, type = 'success') {
     const t = document.getElementById('toastMessage'), b = document.getElementById('toastBody');

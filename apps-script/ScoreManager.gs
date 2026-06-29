@@ -101,6 +101,54 @@ class ScoreManager {
     }
     
     /**
+     * Batch import scores
+     * @param {Array} scoresData - Array of score objects
+     * @returns {Object} Import result
+     */
+    importScores(scoresData) {
+        try {
+            if (!scoresData || scoresData.length === 0) {
+                return { success: 0, failed: 0, error: 'No data provided' };
+            }
+            
+            let success = 0;
+            let failed = 0;
+            const errors = [];
+            
+            for (let i = 0; i < scoresData.length; i++) {
+                try {
+                    const row = scoresData[i];
+                    const result = this.saveScores({
+                        studentId: row['Student ID'] || row.studentId,
+                        subjectId: row['Subject ID'] || row.subjectId,
+                        term: row['Term'] || row.term || 3,
+                        ca1: Number(row['CA1'] || row.ca1 || 0),
+                        ca2: Number(row['CA2'] || row.ca2 || 0),
+                        exam: Number(row['Exam'] || row.exam || 0),
+                        comment: row['Comment'] || row.comment || ''
+                    });
+                    
+                    if (result.success) {
+                        success++;
+                    } else {
+                        failed++;
+                        errors.push({ row: i + 1, error: result.error });
+                    }
+                } catch (rowError) {
+                    failed++;
+                    errors.push({ row: i + 1, error: rowError.message });
+                }
+            }
+            
+            return { success, failed, errors: errors.slice(0, 10) };
+            
+        } catch (error) {
+            Logger.log('❌ importScores Error:', error);
+            return { success: 0, failed: scoresData?.length || 0, error: error.message };
+        }
+    }
+    
+    /**
      * Calculate grade based on total score
      */
     calculateGrade(total) {

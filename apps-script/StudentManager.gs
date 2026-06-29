@@ -115,9 +115,49 @@ deleteStudent(studentId) {
     return null;
   }
   
-  importStudents(students) {
-    // Stub - will implement later
-    return { success: true, message: 'Students imported (stub)' };
+  importStudents(studentsData) {
+    try {
+      if (!studentsData || studentsData.length === 0) {
+        return { success: 0, failed: 0, error: 'No data provided' };
+      }
+      
+      let success = 0;
+      let failed = 0;
+      const errors = [];
+      
+      for (let i = 0; i < studentsData.length; i++) {
+        try {
+          const row = studentsData[i];
+          const result = this.addStudent({
+            fullName: row['Full Name'] || row.fullName || row['Full_Name'],
+            className: row['Class'] || row.className,
+            parentEmail: row['Parent Email'] || row.parentEmail || row['Parent_Email'] || '',
+            phone: row['Phone'] || row.phone || '',
+            status: row['Status'] || row.status || 'Active',
+            admissionDate: row['Admission Date'] || row.admissionDate || row['Admission_Date'] || ''
+          });
+          
+          if (result.success) {
+            success++;
+          } else if (result.error && !result.error.includes('already exists')) {
+            failed++;
+            errors.push({ row: i + 1, error: result.error });
+          } else {
+            // Already exists - still count as success
+            success++;
+          }
+        } catch (rowError) {
+          failed++;
+          errors.push({ row: i + 1, error: rowError.message });
+        }
+      }
+      
+      return { success, failed, errors: errors.slice(0, 10), total: studentsData.length };
+      
+    } catch (error) {
+      Logger.log('❌ importStudents Error:', error);
+      return { success: 0, failed: studentsData?.length || 0, error: error.message };
+    }
   }
   // SchoolManager.gs - Add these methods
 // ============================================
