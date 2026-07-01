@@ -249,6 +249,25 @@ function handleRequest(e) {
         result = schoolManager.getTeacherAnalysis(params.teacherId);
         break;
         
+      // GRADUATE / TRANSFER
+      case 'markGraduated':
+        result = schoolManager.graduateTransferManager.markGraduated(params.studentId, params.className, params.graduationDate);
+        break;
+      case 'markTransferred':
+        result = schoolManager.graduateTransferManager.markTransferred(params.studentId, params.toSchool, params.transferDate);
+        break;
+      case 'getGraduates':
+        result = schoolManager.graduateTransferManager.getGraduates(params.academicYear || null);
+        break;
+      case 'getTransfers':
+        result = schoolManager.graduateTransferManager.getTransfers(params.academicYear || null);
+        break;
+        
+      // EMAIL
+      case 'sendEmail':
+        result = schoolManager.sendEmail(params);
+        break;
+        
       // PROMOTION
       case 'getPromotionStatus':
         result = schoolManager.getPromotionStatus(params.studentId);
