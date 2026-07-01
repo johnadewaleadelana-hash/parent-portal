@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Graduate/Transfer Management</title>
+    <title>Admin - Graduate & Transfer Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
-        .section-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
-        .section-card .card-hdr { background: #f8f9fa; padding: 16px 24px; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #1a237e; }
-        .section-card .card-bd { padding: 24px; }
+        .section-box { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+        .section-box .shdr { background: #f8f9fa; padding: 14px 24px; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #1a237e; }
+        .section-box .sbd { padding: 20px 24px; }
         .nav-tabs .nav-link { color: #495057; font-weight: 500; }
         .nav-tabs .nav-link.active { color: #1a237e; border-bottom: 3px solid #1a237e; }
-        .stat-box { border-radius: 8px; }
+        .stat-card { border-radius: 8px; }
+        .filter-row { background: #f8f9fa; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px; }
+        .grade-badge { display: inline-block; padding: 2px 10px; border-radius: 4px; color: #fff; font-weight: 600; font-size: 12px; }
+        .grade-A { background: #28a745; } .grade-B { background: #8bc34a; } .grade-C { background: #ffc107; color: #000; }
+        .grade-D { background: #fd7e14; } .grade-E { background: #f44336; } .grade-F { background: #d32f2f; }
     </style>
 </head>
 <body>
@@ -31,102 +35,160 @@
 
     <div class="container mt-4 mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <div><h1><i class="fas fa-graduation-cap"></i> Graduate & Transfer Management</h1><p class="text-muted">Manage student graduations and transfers</p></div>
+            <div><h1><i class="fas fa-graduation-cap"></i> Graduate & Transfer Management</h1><p class="text-muted">Manage student graduations, transfers, and transcripts</p></div>
             <button class="btn btn-outline-dark" onclick="location.href='admin-dashboard.html'"><i class="fas fa-arrow-left"></i> Dashboard</button>
         </div>
 
-        <ul class="nav nav-tabs mb-4">
-            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-grad">Graduates</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-transfer">Transfers</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-transcript">Transcripts</button></li>
+        <ul class="nav nav-tabs mb-4" id="mainTabs">
+            <li class="nav-item"><button class="nav-link active" onclick="switchTab('graduates')"><i class="fas fa-user-graduate"></i> Graduates</button></li>
+            <li class="nav-item"><button class="nav-link" onclick="switchTab('transfers')"><i class="fas fa-exchange-alt"></i> Transfers</button></li>
+            <li class="nav-item"><button class="nav-link" onclick="switchTab('transcripts')"><i class="fas fa-file-alt"></i> Transcripts</button></li>
         </ul>
 
-        <div class="tab-content">
-            <!-- ============ GRADUATES TAB ============ -->
-            <div class="tab-pane fade show active" id="tab-grad">
-                <div class="section-card">
-                    <div class="card-hdr"><i class="fas fa-user-graduate"></i> Mark Student as Graduated</div>
-                    <div class="card-bd">
-                        <div class="row g-3">
-                            <div class="col-md-4"><label>Student</label><select class="form-select" id="gradStudent"><option value="">Select student...</option></select></div>
-                            <div class="col-md-3"><label>Graduating Class</label><select class="form-select" id="gradClass"><option value="">Select class...</option></select></div>
-                            <div class="col-md-3"><label>Graduation Date</label><input type="date" class="form-control" id="gradDate"></div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button class="btn btn-success w-100" onclick="markGraduated()"><i class="fas fa-graduation-cap"></i> Graduate</button>
-                            </div>
+        <!-- ============ GRADUATES TAB ============ -->
+        <div id="tab-graduates">
+            <!-- Mark Graduated -->
+            <div class="section-box">
+                <div class="shdr"><i class="fas fa-graduation-cap"></i> Mark Student as Graduated</div>
+                <div class="sbd">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Student</label>
+                            <select class="form-select" id="gradStudent"><option value="">Select student...</option></select>
                         </div>
-                        <div class="row mt-2">
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="gradCert" checked><label class="form-check-label">Generate Certificate</label></div></div>
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="gradTranscript" checked><label class="form-check-label">Generate Transcript</label></div></div>
+                        <div class="col-md-3">
+                            <label class="form-label">Graduating Class</label>
+                            <select class="form-select" id="gradClass"><option value="">Select class...</option></select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Graduation Date</label>
+                            <input type="date" class="form-control" id="gradDate">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-success w-100" onclick="markGraduated()"><i class="fas fa-graduation-cap"></i> Graduate</button>
                         </div>
                     </div>
-                </div>
-
-                <div class="row g-3 mb-3" id="gradStats"></div>
-
-                <div class="section-card">
-                    <div class="card-hdr"><i class="fas fa-list"></i> Graduates List</div>
-                    <div class="card-bd">
-                        <div class="row mb-3">
-                            <div class="col-md-3"><label>Academic Year</label><select class="form-select form-select-sm" id="gradYearFilter"><option value="">All</option><option value="2023/2024">2023/2024</option><option value="2024/2025">2024/2025</option></select></div>
-                            <div class="col-md-3"><label>Class</label><select class="form-select form-select-sm" id="gradClassFilter"><option value="">All</option></select></div>
-                            <div class="col-md-3"><label>Search</label><input class="form-control form-control-sm" id="gradSearch" placeholder="Search name..." oninput="loadGraduates()"></div>
-                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-sm btn-outline-primary" onclick="loadGraduates()"><i class="fas fa-search"></i> Filter</button></div>
-                        </div>
-                        <div class="table-responsive"><table class="table table-bordered table-sm"><thead class="table-dark"><tr><th>ID</th><th>Name</th><th>Class</th><th>Date</th><th>Year</th><th>Average</th><th>Grade</th><th>GPA</th><th>Cert</th><th>Transcript</th></tr></thead><tbody id="gradBody"></tbody></table></div>
+                    <div class="row mt-2">
+                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="gradCert" checked><label class="form-check-label">Generate Certificate</label></div></div>
+                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="gradTranscript" checked><label class="form-check-label">Generate Transcript</label></div></div>
                     </div>
                 </div>
             </div>
 
-            <!-- ============ TRANSFERS TAB ============ -->
-            <div class="tab-pane fade" id="tab-transfer">
-                <div class="section-card">
-                    <div class="card-hdr"><i class="fas fa-exchange-alt"></i> Mark Student as Transferred</div>
-                    <div class="card-bd">
-                        <div class="row g-3">
-                            <div class="col-md-4"><label>Student</label><select class="form-select" id="trStudent"><option value="">Select student...</option></select></div>
-                            <div class="col-md-3"><label>Transfer Date</label><input type="date" class="form-control" id="trDate"></div>
-                            <div class="col-md-3"><label>From Class</label><select class="form-select" id="trClass"><option value="">Select class...</option></select></div>
+            <!-- Stats -->
+            <div class="row g-3 mb-3" id="gradStats">
+                <div class="col-md-3"><div class="card bg-primary text-white stat-card"><div class="card-body text-center py-3"><h6>Total Graduates</h6><h3 id="gradTotal" class="mb-0">0</h3></div></div></div>
+                <div class="col-md-3"><div class="card bg-success text-white stat-card"><div class="card-body text-center py-3"><h6>This Year</h6><h3 id="gradThisYear" class="mb-0">0</h3></div></div></div>
+                <div class="col-md-3"><div class="card bg-info text-white stat-card"><div class="card-body text-center py-3"><h6>With Certificate</h6><h3 id="gradCertCount" class="mb-0">0</h3></div></div></div>
+                <div class="col-md-3"><div class="card bg-warning text-dark stat-card"><div class="card-body text-center py-3"><h6>Transcripts</h6><h3 id="gradTransCount" class="mb-0">0</h3></div></div></div>
+            </div>
+
+            <!-- Graduates List -->
+            <div class="section-box">
+                <div class="shdr"><i class="fas fa-list"></i> Graduates List</div>
+                <div class="sbd">
+                    <div class="filter-row row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small">Academic Year</label>
+                            <select class="form-select form-select-sm" id="gradYearFilter" onchange="loadGraduates()">
+                                <option value="">All Years</option>
+                                <option value="2023/2024">2023/2024</option>
+                                <option value="2024/2025">2024/2025</option>
+                            </select>
                         </div>
-                        <div class="row g-3 mt-2">
-                            <div class="col-md-4"><label>To School Name</label><input class="form-control" id="trSchool" placeholder="Enter school name"></div>
-                            <div class="col-md-4"><label>School Address</label><input class="form-control" id="trAddress" placeholder="Enter school address"></div>
-                            <div class="col-md-4"><label>School Phone</label><input class="form-control" id="trPhone" placeholder="Enter school phone"></div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Class</label>
+                            <select class="form-select form-select-sm" id="gradClassFilter" onchange="loadGraduates()"><option value="">All Classes</option></select>
                         </div>
-                        <div class="row mt-2">
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="trTranscript" checked><label class="form-check-label">Generate Transcript</label></div></div>
-                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-warning" onclick="markTransferred()"><i class="fas fa-exchange-alt"></i> Mark Transferred</button></div>
+                        <div class="col-md-4">
+                            <label class="form-label small">Search</label>
+                            <input class="form-control form-control-sm" id="gradSearch" placeholder="Search by name..." onkeyup="loadGraduates()">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-sm btn-outline-success w-100" onclick="exportGraduates()"><i class="fas fa-download"></i> Export</button>
                         </div>
                     </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-sm" id="gradTable">
+                            <thead class="table-dark"><tr>
+                                <th>#</th><th>Student ID</th><th>Name</th><th>Graduation Class</th><th>Date</th><th>Year</th>
+                                <th>Average</th><th>Grade</th><th>GPA</th><th>Certificate</th><th>Transcript</th><th>Actions</th>
+                            </tr></thead>
+                            <tbody id="gradBody"></tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="section-card">
-                    <div class="card-hdr"><i class="fas fa-list"></i> Transfers List</div>
-                    <div class="card-bd">
-                        <div class="row mb-3">
-                            <div class="col-md-3"><label>From Class</label><select class="form-select form-select-sm" id="trClassFilter"><option value="">All</option></select></div>
-                            <div class="col-md-3"><label>Search</label><input class="form-control form-control-sm" id="trSearch" placeholder="Search name or school..." oninput="loadTransfers()"></div>
-                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-sm btn-outline-primary" onclick="loadTransfers()"><i class="fas fa-search"></i> Filter</button></div>
-                        </div>
-                        <div class="table-responsive"><table class="table table-bordered table-sm"><thead class="table-dark"><tr><th>ID</th><th>Name</th><th>Date</th><th>From Class</th><th>To School</th><th>Transcript</th></tr></thead><tbody id="trBody"></tbody></table></div>
+        <!-- ============ TRANSFERS TAB ============ -->
+        <div id="tab-transfers" style="display:none;">
+            <div class="section-box">
+                <div class="shdr"><i class="fas fa-exchange-alt"></i> Mark Student as Transferred</div>
+                <div class="sbd">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label">Student</label><select class="form-select" id="trStudent"><option value="">Select student...</option></select></div>
+                        <div class="col-md-3"><label class="form-label">Transfer Date</label><input type="date" class="form-control" id="trDate"></div>
+                        <div class="col-md-3"><label class="form-label">From Class</label><select class="form-select" id="trClass"><option value="">Select class...</option></select></div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4"><label class="form-label">School Name</label><input class="form-control" id="trSchool" placeholder="Enter receiving school name"></div>
+                        <div class="col-md-4"><label class="form-label">School Address</label><input class="form-control" id="trAddress" placeholder="Enter school address"></div>
+                        <div class="col-md-4"><label class="form-label">School Phone</label><input class="form-control" id="trPhone" placeholder="Enter school phone"></div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="trGenTranscript" checked><label class="form-check-label">Generate Transcript</label></div></div>
+                        <div class="col-md-2"><button class="btn btn-warning" onclick="markTransferred()"><i class="fas fa-exchange-alt"></i> Mark Transferred</button></div>
                     </div>
                 </div>
             </div>
 
-            <!-- ============ TRANSCRIPTS TAB ============ -->
-            <div class="tab-pane fade" id="tab-transcript">
-                <div class="section-card">
-                    <div class="card-hdr"><i class="fas fa-file-alt"></i> Generate Transcript</div>
-                    <div class="card-bd">
-                        <div class="row g-3">
-                            <div class="col-md-4"><label>Student</label><select class="form-select" id="tsStudent"><option value="">Select student...</option></select></div>
-                            <div class="col-md-3"><label>Type</label><select class="form-select" id="tsType"><option value="standard">Standard</option><option value="cumulative">Cumulative</option><option value="transfer">Transfer</option><option value="graduation">Graduation</option></select></div>
-                            <div class="col-md-3 d-flex align-items-end">
-                                <button class="btn btn-primary me-2" onclick="previewTranscript()"><i class="fas fa-eye"></i> Preview</button>
-                                <button class="btn btn-success" onclick="generateTranscript()"><i class="fas fa-file-pdf"></i> Generate PDF</button>
-                            </div>
+            <div class="section-box">
+                <div class="shdr"><i class="fas fa-list"></i> Transfers List</div>
+                <div class="sbd">
+                    <div class="filter-row row g-2 align-items-end">
+                        <div class="col-md-3"><label class="form-label small">From Class</label><select class="form-select form-select-sm" id="trClassFilter" onchange="loadTransfers()"><option value="">All Classes</option></select></div>
+                        <div class="col-md-4"><label class="form-label small">Search</label><input class="form-control form-control-sm" id="trSearch" placeholder="Search by name or school..." onkeyup="loadTransfers()"></div>
+                        <div class="col-md-2"><button class="btn btn-sm btn-outline-success w-100" onclick="exportTransfers()"><i class="fas fa-download"></i> Export</button></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-sm">
+                            <thead class="table-dark"><tr><th>#</th><th>Student ID</th><th>Name</th><th>Transfer Date</th><th>From Class</th><th>To School</th><th>Transcript Requested</th><th>Transcript Sent</th><th>Actions</th></tr></thead>
+                            <tbody id="trBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ TRANSCRIPTS TAB ============ -->
+        <div id="tab-transcripts" style="display:none;">
+            <div class="section-box">
+                <div class="shdr"><i class="fas fa-file-alt"></i> Generate Transcript</div>
+                <div class="sbd">
+                    <div class="row g-3">
+                        <div class="col-md-4"><label class="form-label">Student</label><select class="form-select" id="tsStudent"><option value="">Select student...</option></select></div>
+                        <div class="col-md-3"><label class="form-label">Transcript Type</label><select class="form-select" id="tsType"><option value="standard">Standard</option><option value="cumulative">Cumulative</option><option value="transfer">Transfer</option><option value="graduation">Graduation</option></select></div>
+                        <div class="col-md-5 d-flex align-items-end gap-2">
+                            <button class="btn btn-primary" onclick="previewTranscript()"><i class="fas fa-eye"></i> Preview</button>
+                            <button class="btn btn-success" onclick="generateTranscriptPDF()"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+                            <button class="btn btn-info text-white" onclick="emailTranscript()"><i class="fas fa-envelope"></i> Email</button>
                         </div>
-                        <div id="tsPreview" class="mt-3 d-none"></div>
+                    </div>
+                    <div id="tsPreviewArea" class="mt-3 d-none"></div>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <div class="shdr"><i class="fas fa-history"></i> Transcript History</div>
+                <div class="sbd">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-dark"><tr><th>Date</th><th>Student</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="tsHistoryBody">
+                                <tr><td colspan="5" class="text-center text-muted">No transcripts generated yet</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

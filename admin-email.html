@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Email Notifications</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .email-section { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+        .email-section .hdr { background: #f8f9fa; padding: 16px 24px; border-bottom: 1px solid #e9ecef; font-weight: 600; color: #1a237e; }
+        .email-section .bd { padding: 24px; }
+        .nav-tabs .nav-link { color: #495057; font-weight: 500; }
+        .nav-tabs .nav-link.active { color: #1a237e; border-bottom: 3px solid #1a237e; }
+        .template-preview { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; font-size: 14px; min-height: 120px; }
+        .log-table { font-size: 13px; }
+        .log-table th { background: #1a237e; color: #fff; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="admin-dashboard.html"><i class="fas fa-school"></i> Admin Portal</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><span class="nav-link text-light"><i class="fas fa-user-shield"></i> Admin</span></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div><h1><i class="fas fa-envelope"></i> Email Notifications</h1><p class="text-muted">Send PINs, reports, and notifications to parents</p></div>
+            <button class="btn btn-outline-dark" onclick="location.href='admin-dashboard.html'"><i class="fas fa-arrow-left"></i> Dashboard</button>
+        </div>
+
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-send">Send Emails</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-templates">Templates</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-logs">Email Logs</button></li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- ============ SEND EMAILS ============ -->
+            <div class="tab-pane fade show active" id="tab-send">
+                <!-- Send PINs -->
+                <div class="email-section">
+                    <div class="hdr"><i class="fas fa-key"></i> Send PINs to Parents</div>
+                    <div class="bd">
+                        <div class="row g-3">
+                            <div class="col-md-4"><label>Select Class</label><select class="form-select" id="pinClass" onchange="loadPinStudents()"><option value="">Select class...</option></select></div>
+                            <div class="col-md-4"><label>Select Students</label><select class="form-select" id="pinStudents" multiple size="4"><option value="">Load a class first</option></select></div>
+                            <div class="col-md-4"><label>Email Subject</label><input class="form-control" id="pinSubject" value="Your Child's School Access PIN"></div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-12"><label>Email Body</label><textarea class="form-control" id="pinBody" rows="6">Dear Parent,
+
+Your child's Parent Portal access PIN is: {PIN}
+
+Use this PIN at https://johnadewaleadelana-hash.github.io/parent-portal/ to view your child's academic report.
+
+Class: {CLASS}
+Student Name: {STUDENT_NAME}
+
+Thank you,
+School Administration</textarea></div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-primary" onclick="sendPINs()"><i class="fas fa-paper-plane"></i> Send PINs</button>
+                            <span id="pinSendResult" class="ms-3"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Send Reports -->
+                <div class="email-section">
+                    <div class="hdr"><i class="fas fa-file-alt"></i> Send Reports to Parents</div>
+                    <div class="bd">
+                        <div class="row g-3">
+                            <div class="col-md-4"><label>Student</label><select class="form-select" id="reportStudent"><option value="">Select student...</option></select></div>
+                            <div class="col-md-3"><label>Term</label><select class="form-select" id="reportTerm"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3" selected>Term 3</option></select></div>
+                            <div class="col-md-3"><label>Email Subject</label><input class="form-control" id="reportSubject" value="Academic Report - {STUDENT_NAME}"></div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-12"><label>Email Body</label><textarea class="form-control" id="reportBody" rows="6">Dear Parent,
+
+Please find attached the academic report for {STUDENT_NAME} for {TERM}.
+
+Average Score: {AVERAGE}
+Grade: {GRADE}
+Class: {CLASS}
+
+Thank you,
+School Administration</textarea></div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="attachPDF" checked><label class="form-check-label">Attach Report as PDF</label></div></div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-primary" onclick="sendReport()"><i class="fas fa-paper-plane"></i> Send Report</button>
+                            <span id="reportSendResult" class="ms-3"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bulk Send -->
+                <div class="email-section">
+                    <div class="hdr"><i class="fas fa-users"></i> Bulk Send to Class</div>
+                    <div class="bd">
+                        <div class="row g-3">
+                            <div class="col-md-3"><label>Class</label><select class="form-select" id="bulkClass" onchange="loadBulkStudents()"><option value="">Select class...</option></select></div>
+                            <div class="col-md-3"><label>Term</label><select class="form-select" id="bulkTerm"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3" selected>Term 3</option></select></div>
+                            <div class="col-md-4"><label>Email Subject</label><input class="form-control" id="bulkSubject" value="Academic Report - {TERM}"></div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-12"><label>Email Body</label><textarea class="form-control" id="bulkBody" rows="5">Dear Parent,
+
+Please find attached the academic report for {STUDENT_NAME}.
+
+Average: {AVERAGE} | Grade: {GRADE}
+Class: {CLASS} | Term: {TERM}
+
+Thank you,
+School Administration</textarea></div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6"><strong>Recipients: <span id="bulkCount">0</span> students</strong>
+                                <div id="bulkRecipients" class="mt-1 small text-muted" style="max-height:80px;overflow-y:auto;"></div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-primary" onclick="bulkSend()"><i class="fas fa-paper-plane"></i> Send All</button>
+                            <div class="progress mt-2 d-none" id="bulkProgress" style="height:20px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" id="bulkProgressBar" style="width:0%">0%</div>
+                            </div>
+                            <span id="bulkSendResult" class="ms-3"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ TEMPLATES ============ -->
+            <div class="tab-pane fade" id="tab-templates">
+                <div class="email-section">
+                    <div class="hdr"><i class="fas fa-palette"></i> Email Templates</div>
+                    <div class="bd">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label>PIN Email Template</label>
+                                <textarea class="form-control" id="tmplPin" rows="8">Dear Parent,
+
+Your child's Parent Portal access PIN is: {PIN}
+
+Use this PIN to access your child's academic report online.
+
+Student: {STUDENT_NAME}
+Class: {CLASS}
+
+Thank you,
+School Administration</textarea>
+                                <button class="btn btn-sm btn-outline-primary mt-2" onclick="saveTemplate('pin')"><i class="fas fa-save"></i> Save PIN Template</button>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Report Email Template</label>
+                                <textarea class="form-control" id="tmplReport" rows="8">Dear Parent,
+
+Please find attached the academic report for {STUDENT_NAME} for {TERM}.
+
+Average Score: {AVERAGE}
+Grade: {GRADE}
+Class: {CLASS}
+
+Thank you,
+School Administration</textarea>
+                                <button class="btn btn-sm btn-outline-primary mt-2" onclick="saveTemplate('report')"><i class="fas fa-save"></i> Save Report Template</button>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-6">
+                                <label>Notification Template</label>
+                                <textarea class="form-control" id="tmplNotify" rows="6">Dear Parent,
+
+This is to notify you regarding {STUDENT_NAME} of {CLASS}.
+
+{MESSAGE}
+
+Thank you,
+School Administration</textarea>
+                                <button class="btn btn-sm btn-outline-primary mt-2" onclick="saveTemplate('notify')"><i class="fas fa-save"></i> Save Notification Template</button>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Template Variables</h6>
+                                <table class="table table-sm small">
+                                    <tr><td><code>{STUDENT_NAME}</code></td><td>Student's full name</td></tr>
+                                    <tr><td><code>{CLASS}</code></td><td>Student's class</td></tr>
+                                    <tr><td><code>{PIN}</code></td><td>Access PIN</td></tr>
+                                    <tr><td><code>{TERM}</code></td><td>Term name</td></tr>
+                                    <tr><td><code>{AVERAGE}</code></td><td>Average score</td></tr>
+                                    <tr><td><code>{GRADE}</code></td><td>Grade letter</td></tr>
+                                    <tr><td><code>{MESSAGE}</code></td><td>Custom message</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ EMAIL LOGS ============ -->
+            <div class="tab-pane fade" id="tab-logs">
+                <div class="email-section">
+                    <div class="hdr"><i class="fas fa-history"></i> Email History</div>
+                    <div class="bd">
+                        <div class="table-responsive">
+                            <table class="table table-bordered log-table">
+                                <thead><tr><th>Date/Time</th><th>Recipient</th><th>Subject</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody id="logBody">
+                                    <tr><td colspan="6" class="text-center text-muted">No email logs yet</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toastMessage" class="toast align-items-center text-white border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button></div></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/parent-api.js"></script>
+    <script src="js/admin-email.js"></script>
+</body>
+</html>
